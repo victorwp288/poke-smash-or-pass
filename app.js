@@ -11,6 +11,9 @@ const MOBILE_VIEW_QUERY = "(max-width: 980px)";
 const SHUFFLE_SWIPE_MIN_DISTANCE = 120;
 const SHUFFLE_SWIPE_MAX_HORIZONTAL_DRIFT = 72;
 const SHUFFLE_SWIPE_MIN_VELOCITY = 0.45;
+const HEIGHT_ICON_URL = "icons/height.svg";
+const WEIGHT_ICON_URL = "icons/weight.svg";
+const MEGA_ICON_URL = "icons/megaevolution.webp";
 
 const els = {
   cardShell: document.getElementById("cardShell"),
@@ -27,6 +30,7 @@ const els = {
   undoBtn: document.getElementById("undoBtn"),
   shuffleBtn: document.getElementById("shuffleBtn"),
   peekBtn: document.getElementById("peekBtn"),
+  cryBtn: document.getElementById("cryBtn"),
   favoriteBtn: document.getElementById("favoriteBtn"),
   genGrid: document.getElementById("genGrid"),
   typeGrid: document.getElementById("typeGrid"),
@@ -37,6 +41,7 @@ const els = {
   autoReveal: document.getElementById("autoReveal"),
   shinyMode: document.getElementById("shinyMode"),
   dailyDeck: document.getElementById("dailyDeck"),
+  onlyMega: document.getElementById("onlyMega"),
   keepHistory: document.getElementById("keepHistory"),
   smashList: document.getElementById("smashList"),
   passList: document.getElementById("passList"),
@@ -112,56 +117,57 @@ const state = {
   imageSwipeStartY: 0,
   imageSwipePointerId: null,
   imageSwipeActive: false,
+  cryAudio: null,
   isShuffling: false,
   mobileHubOpen: false,
 };
 
 const typeColors = {
-  normal: "#f4d06f",
-  fire: "#ff6b2d",
-  water: "#62c6ff",
-  electric: "#ffe066",
-  grass: "#72e6a1",
-  ice: "#b0f4ff",
-  fighting: "#ff8a65",
-  poison: "#d09cff",
-  ground: "#f1b46e",
-  flying: "#c4d4ff",
-  psychic: "#ff9ad5",
-  bug: "#cfe36a",
-  rock: "#d6c7a0",
-  ghost: "#9aa0ff",
-  dragon: "#7ab6ff",
-  dark: "#a5a0a0",
-  steel: "#cad7df",
-  fairy: "#ffb3d6",
+  normal: "#9099a1",
+  fire: "#ff9c54",
+  water: "#4d90d4",
+  electric: "#f3d23b",
+  grass: "#63bb5b",
+  ice: "#74cec0",
+  fighting: "#ce406a",
+  poison: "#ae6eca",
+  ground: "#d97845",
+  flying: "#8fa8dd",
+  psychic: "#f97175",
+  bug: "#90c12c",
+  rock: "#c7b78b",
+  ghost: "#6f4170",
+  dragon: "#076dc4",
+  dark: "#5a5266",
+  steel: "#5a8ea1",
+  fairy: "#ec90e6",
 };
 
 const typeIconFiles = {
-  normal: "Normal_icon_PE.png",
-  fire: "Fire_icon_PE.png",
-  water: "Water_icon_PE.png",
-  electric: "Electric_icon_PE.png",
-  grass: "Grass_icon_PE.png",
-  ice: "Ice_icon_PE.png",
-  fighting: "Fighting_icon_PE.png",
-  poison: "Poison_icon_PE.png",
-  ground: "Ground_icon_PE.png",
-  flying: "Flying_icon_PE.png",
-  psychic: "Psychic_icon_PE.png",
-  bug: "Bug_icon_PE.png",
-  rock: "Rock_icon_PE.png",
-  ghost: "Ghost_icon_PE.png",
-  dragon: "Dragon_icon_PE.png",
-  dark: "Dark_icon_PE.png",
-  steel: "Steel_icon_PE.png",
-  fairy: "Fairy_icon_PE.png",
+  normal: "normal.png",
+  fire: "fire.png",
+  water: "water.png",
+  electric: "electric.png",
+  grass: "grass.png",
+  ice: "ice.png",
+  fighting: "fighting.png",
+  poison: "poison.png",
+  ground: "ground.png",
+  flying: "flying.png",
+  psychic: "psychic.png",
+  bug: "bug.png",
+  rock: "rock.png",
+  ghost: "ghost.png",
+  dragon: "dragon.png",
+  dark: "dark.png",
+  steel: "steel.png",
+  fairy: "fairy.png",
 };
 
 const getTypeIconUrl = (type) => {
   const file = typeIconFiles[type];
   if (!file) return "";
-  return `https://archives.bulbagarden.net/wiki/Special:FilePath/${encodeURIComponent(file)}`;
+  return `icons/types/${file}`;
 };
 
 const TYPE_LIST = Object.keys(typeColors);
@@ -292,7 +298,7 @@ const loadHistory = () => {
         ? list.map((entry) =>
             typeof entry === "string"
               ? { name: entry, thumb: "" }
-              : { name: entry.name || "Unknown", thumb: entry.thumb || "" }
+              : { name: entry.name || "Unknown", thumb: entry.thumb || "" },
           )
         : [];
     state.smashing = normalizeList(data.smash);
@@ -301,7 +307,10 @@ const loadHistory = () => {
     state.passCount = Number(data.passCount) || state.passing.length;
     if (data.typeCounts && typeof data.typeCounts === "object") {
       state.smashTypeCounts = new Map(
-        Object.entries(data.typeCounts).map(([key, value]) => [key, Number(value) || 0])
+        Object.entries(data.typeCounts).map(([key, value]) => [
+          key,
+          Number(value) || 0,
+        ]),
       );
     }
     if (data.statTotals && typeof data.statTotals === "object") {
@@ -331,12 +340,16 @@ const loadFilters = () => {
     const data = JSON.parse(raw);
     if (Array.isArray(data.gens)) {
       state.selectedGens = new Set(
-        data.gens.filter((gen) => Number.isInteger(gen) && gen >= 1 && gen <= GEN_COUNT)
+        data.gens.filter(
+          (gen) => Number.isInteger(gen) && gen >= 1 && gen <= GEN_COUNT,
+        ),
       );
     }
     if (Array.isArray(data.types)) {
       state.selectedTypes = new Set(
-        data.types.filter((type) => typeof type === "string" && TYPE_LIST.includes(type))
+        data.types.filter(
+          (type) => typeof type === "string" && TYPE_LIST.includes(type),
+        ),
       );
     }
     return true;
@@ -352,6 +365,7 @@ const saveOptions = () => {
       autoReveal: els.autoReveal.checked,
       shinyMode: els.shinyMode.checked,
       dailyDeck: els.dailyDeck.checked,
+      onlyMega: els.onlyMega.checked,
       keepHistory: els.keepHistory.checked,
     };
     localStorage.setItem(OPTIONS_KEY, JSON.stringify(payload));
@@ -373,6 +387,9 @@ const loadOptions = () => {
     }
     if (typeof data.dailyDeck === "boolean") {
       els.dailyDeck.checked = data.dailyDeck;
+    }
+    if (typeof data.onlyMega === "boolean") {
+      els.onlyMega.checked = data.onlyMega;
     }
     if (typeof data.keepHistory === "boolean") {
       els.keepHistory.checked = data.keepHistory;
@@ -398,7 +415,7 @@ const loadFavorites = () => {
     if (Array.isArray(data)) {
       state.favorites = data
         .map((entry) =>
-          typeof entry === "string" ? { name: entry, thumb: "" } : entry
+          typeof entry === "string" ? { name: entry, thumb: "" } : entry,
         )
         .filter((entry) => entry && entry.name);
     }
@@ -493,7 +510,9 @@ const updateCounts = () => {
 };
 
 const renderHistory = (items, containers) => {
-  const targets = (Array.isArray(containers) ? containers : [containers]).filter(Boolean);
+  const targets = (
+    Array.isArray(containers) ? containers : [containers]
+  ).filter(Boolean);
   targets.forEach((container) => {
     container.innerHTML = "";
   });
@@ -521,7 +540,9 @@ const renderHistory = (items, containers) => {
 const chooseFlavorText = (entries) => {
   const english = entries.filter((entry) => entry.language.name === "en");
   const unique = Array.from(
-    new Set(english.map((entry) => entry.flavor_text.replace(/\s+/g, " ").trim()))
+    new Set(
+      english.map((entry) => entry.flavor_text.replace(/\s+/g, " ").trim()),
+    ),
   );
   return unique[0] || "No flavor text yet.";
 };
@@ -529,26 +550,47 @@ const chooseFlavorText = (entries) => {
 const formatStats = (stats) => {
   const total = stats.reduce((sum, stat) => sum + stat.base_stat, 0);
   const rows = stats.map(
-    (stat) => `<div class="stat"><span>${capitalize(stat.stat.name)}</span><span>${stat.base_stat}</span></div>`
+    (stat) =>
+      `<div class="stat"><span>${capitalize(stat.stat.name)}</span><span>${stat.base_stat}</span></div>`,
   );
-  rows.push(`<div class="stat stat-total"><span>Total</span><span>${total}</span></div>`);
+  rows.push(
+    `<div class="stat stat-total"><span>Total</span><span>${total}</span></div>`,
+  );
   return rows.join("");
 };
 
 const formatVitals = (pokemon) => {
   const generation = getGenerationFromId(pokemon.id);
-  const heightMeters = Number.isFinite(pokemon.height) ? (pokemon.height / 10).toFixed(1) : "?";
-  const weightKg = Number.isFinite(pokemon.weight) ? (pokemon.weight / 10).toFixed(1) : "?";
+  const heightMeters = Number.isFinite(pokemon.height)
+    ? (pokemon.height / 10).toFixed(1)
+    : "?";
+  const weightKg = Number.isFinite(pokemon.weight)
+    ? (pokemon.weight / 10).toFixed(1)
+    : "?";
   const vitals = [
-    { label: "Generation", value: generation ? `Gen ${generation}` : "Unknown" },
-    { label: "Height", value: `${heightMeters} m` },
-    { label: "Weight", value: `${weightKg} kg` },
+    { label: "Gen", value: generation ? `${generation}` : "Unknown" },
+    {
+      label: "",
+      value: `${heightMeters} m`,
+      icon: HEIGHT_ICON_URL,
+      iconAlt: "Pokemon Scarlet and Violet height icon",
+    },
+    {
+      label: "",
+      value: `${weightKg} kg`,
+      icon: WEIGHT_ICON_URL,
+      iconAlt: "Pokemon Scarlet and Violet weight icon",
+    },
   ];
 
   return `<div class="stat-vitals">${vitals
     .map(
       (item) =>
-        `<div class="vital-chip"><span class="vital-key">${item.label}</span><span class="vital-value">${item.value}</span></div>`
+        `<span class="vital-item">${
+          item.icon
+            ? `<img class="vital-icon" src="${item.icon}" alt="${item.iconAlt}" loading="lazy" decoding="async" />`
+            : ""
+        }<span class="vital-key">${item.label}</span><span class="vital-value">${item.value}</span></span>`,
     )
     .join("")}</div>`;
 };
@@ -575,20 +617,36 @@ const getSpriteScale = (pokemon) => {
 const renderTypes = (types, canMega = false) => {
   els.types.innerHTML = "";
   types.forEach((type) => {
+    const typeName = type.type.name;
     const badge = document.createElement("span");
     badge.className = "type";
-    badge.textContent = type.type.name;
-    badge.style.background = typeColors[type.type.name] || "#f0f0f0";
+    badge.style.background = typeColors[typeName] || "#f0f0f0";
+    const iconWrap = document.createElement("span");
+    iconWrap.className = "type-chip-icon";
+    const icon = document.createElement("img");
+    icon.className = "type-chip-icon-img";
+    icon.src = getTypeIconUrl(typeName);
+    icon.alt = `${capitalize(typeName)} type icon`;
+    icon.loading = "lazy";
+    icon.decoding = "async";
+    icon.addEventListener("error", () => {
+      iconWrap.classList.add("is-missing");
+      icon.remove();
+    });
+    iconWrap.appendChild(icon);
+    badge.appendChild(iconWrap);
+    const label = document.createElement("span");
+    label.textContent = typeName;
+    badge.appendChild(label);
     els.types.appendChild(badge);
   });
 
   if (canMega) {
     const megaBadge = document.createElement("span");
-    megaBadge.className = "type type-mega";
+    megaBadge.className = "type-mega";
     megaBadge.setAttribute("aria-label", "Can Mega Evolve");
     megaBadge.title = "Can Mega Evolve";
-    megaBadge.innerHTML =
-      '<span class="mega-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M10 1.8L13.2 4l4-.5-.5 4L18.2 10l-1.5 2.5.5 4-4-.5L10 18.2 6.8 16l-4 .5.5-4L1.8 10l1.5-2.5-.5-4 4 .5L10 1.8zm-.1 4.4L7.2 10h2.1L8.2 14l4.6-4.8h-2.1l1.2-3z"/></svg></span>';
+    megaBadge.innerHTML = `<span class="mega-icon" aria-hidden="true"><img src="${MEGA_ICON_URL}" alt="" loading="lazy" decoding="async" /></span>`;
     els.types.appendChild(megaBadge);
   }
 };
@@ -625,6 +683,7 @@ const buildThumbnails = (urls, activeUrl) => {
 };
 
 const setCardData = (pokemon) => {
+  stopCryPlayback();
   els.name.textContent = pokemon.name;
   els.id.textContent = `#${String(pokemon.id).padStart(4, "0")}`;
   if (els.genLabel) {
@@ -653,8 +712,9 @@ const setCardData = (pokemon) => {
 
   const showStats = els.autoReveal.checked;
   els.card.classList.toggle("show-stats", showStats);
-  els.peekBtn.textContent = showStats ? "Hide stats" : "Peek stats";
+  updatePeekButton(showStats);
   updateFavoriteButton();
+  updateCryButton();
 };
 
 const normalizeSprites = (sprites) => {
@@ -669,7 +729,10 @@ const normalizeSprites = (sprites) => {
     sprites.back_shiny,
   ].filter(Boolean);
 
-  const main = other["official-artwork"]?.front_default || other.home?.front_default || sprites.front_default;
+  const main =
+    other["official-artwork"]?.front_default ||
+    other.home?.front_default ||
+    sprites.front_default;
   const shiny = sprites.front_shiny || other.home?.front_shiny || main;
 
   return {
@@ -698,7 +761,7 @@ const filterByTypes = async (names) => {
   }
 
   const sets = await Promise.all(
-    Array.from(state.selectedTypes.values()).map((type) => loadTypeIndex(type))
+    Array.from(state.selectedTypes.values()).map((type) => loadTypeIndex(type)),
   );
   const allowed = new Set();
   sets.forEach((set) => {
@@ -724,7 +787,10 @@ const loadPokemon = async (name) => {
     name: capitalize(details.name),
     height: details.height,
     weight: details.weight,
-    canMegaEvolve: MEGA_EVOLUTION_SPECIES.has(details.species?.name || details.name),
+    cry: details.cries?.latest || details.cries?.legacy || "",
+    canMegaEvolve: MEGA_EVOLUTION_SPECIES.has(
+      details.species?.name || details.name,
+    ),
     types: details.types,
     stats: details.stats,
     bio: chooseFlavorText(species.flavor_text_entries),
@@ -777,8 +843,64 @@ const updateFavoriteButton = () => {
   els.favoriteBtn.setAttribute("aria-pressed", String(exists));
   els.favoriteBtn.setAttribute(
     "aria-label",
-    exists ? "Remove from saved Pokemon" : "Save Pokemon"
+    exists ? "Remove from saved Pokemon" : "Save Pokemon",
   );
+};
+
+const updatePeekButton = (showStats) => {
+  if (!els.peekBtn) return;
+  els.peekBtn.textContent = showStats ? "Hide stats" : "Peek stats";
+  els.peekBtn.dataset.open = showStats ? "true" : "false";
+};
+
+const stopCryPlayback = () => {
+  if (state.cryAudio) {
+    state.cryAudio.pause();
+    state.cryAudio.currentTime = 0;
+    state.cryAudio = null;
+  }
+  if (els.cryBtn) {
+    els.cryBtn.classList.remove("is-playing");
+  }
+};
+
+const updateCryButton = () => {
+  if (!els.cryBtn) return;
+  const hasCry = Boolean(state.current?.cry);
+  els.cryBtn.disabled = !hasCry;
+  els.cryBtn.classList.toggle("is-disabled", !hasCry);
+  els.cryBtn.textContent = hasCry ? "Play cry" : "No cry";
+  els.cryBtn.setAttribute(
+    "aria-label",
+    hasCry ? "Play Pokemon cry" : "No cry available for this Pokemon",
+  );
+  if (!hasCry) {
+    els.cryBtn.classList.remove("is-playing");
+  }
+};
+
+const playCry = async () => {
+  if (!state.current?.cry || !els.cryBtn) return;
+  stopCryPlayback();
+  const audio = new Audio(state.current.cry);
+  state.cryAudio = audio;
+  els.cryBtn.classList.add("is-playing");
+
+  const cleanup = () => {
+    if (state.cryAudio === audio) {
+      state.cryAudio = null;
+    }
+    els.cryBtn.classList.remove("is-playing");
+  };
+
+  audio.addEventListener("ended", cleanup, { once: true });
+  audio.addEventListener("error", cleanup, { once: true });
+
+  try {
+    await audio.play();
+  } catch {
+    cleanup();
+  }
 };
 
 const setPanelOpen = (open) => {
@@ -863,7 +985,7 @@ const renderFavorites = () => {
 const toggleFavorite = () => {
   if (!state.current) return;
   const existingIndex = state.favorites.findIndex(
-    (fav) => fav.name === state.current.name
+    (fav) => fav.name === state.current.name,
   );
   if (existingIndex >= 0) {
     state.favorites.splice(existingIndex, 1);
@@ -893,12 +1015,22 @@ const downloadFile = (filename, content, type) => {
 const exportFavorites = (format) => {
   if (!state.favorites.length) return;
   if (format === "json") {
-    downloadFile("smashdex-favorites.json", JSON.stringify(state.favorites, null, 2), "application/json");
+    downloadFile(
+      "smashdex-favorites.json",
+      JSON.stringify(state.favorites, null, 2),
+      "application/json",
+    );
     return;
   }
   const header = "name";
-  const rows = state.favorites.map((fav) => `"${fav.name.replace(/\"/g, "\"\"")}"`);
-  downloadFile("smashdex-favorites.csv", [header, ...rows].join("\n"), "text/csv");
+  const rows = state.favorites.map(
+    (fav) => `"${fav.name.replace(/\"/g, '""')}"`,
+  );
+  downloadFile(
+    "smashdex-favorites.csv",
+    [header, ...rows].join("\n"),
+    "text/csv",
+  );
 };
 
 const loadImage = (src) =>
@@ -945,15 +1077,15 @@ const shareMatchCard = async () => {
   ctx.font = "18px IBM Plex Sans, sans-serif";
   ctx.fillText(`Smash ${state.smashCount} · Pass ${state.passCount}`, 40, 105);
 
-  const items = (state.favorites.length ? state.favorites : state.smashing).slice(0, 8);
+  const items = (
+    state.favorites.length ? state.favorites : state.smashing
+  ).slice(0, 8);
   const startX = 40;
   const startY = 150;
   const gap = 110;
   const rowGap = 150;
 
-  const images = await Promise.all(
-    items.map((item) => loadImage(item.thumb))
-  );
+  const images = await Promise.all(items.map((item) => loadImage(item.thumb)));
 
   items.forEach((item, index) => {
     const col = index % 4;
@@ -992,7 +1124,7 @@ const renderBadges = () => {
   if (state.passStreak >= 5) badges.push("Cold Streak");
 
   const typeEntries = Array.from(state.smashTypeCounts.entries()).sort(
-    (a, b) => b[1] - a[1]
+    (a, b) => b[1] - a[1],
   );
   if (typeEntries[0]?.[1] >= 6) {
     badges.push(`${capitalize(typeEntries[0][0])} Loyalist`);
@@ -1002,9 +1134,13 @@ const renderBadges = () => {
   if (state.smashCount > 0) {
     const avgSpeed = Math.round((totals.speed || 0) / state.smashCount);
     const avgAtk = Math.round((totals.attack || 0) / state.smashCount);
-    const avgSpAtk = Math.round((totals["special-attack"] || 0) / state.smashCount);
+    const avgSpAtk = Math.round(
+      (totals["special-attack"] || 0) / state.smashCount,
+    );
     const avgDef = Math.round((totals.defense || 0) / state.smashCount);
-    const avgSpDef = Math.round((totals["special-defense"] || 0) / state.smashCount);
+    const avgSpDef = Math.round(
+      (totals["special-defense"] || 0) / state.smashCount,
+    );
 
     if (avgSpeed >= 90) badges.push("Speed Demon");
     if (avgAtk + avgSpAtk >= 160 && avgDef + avgSpDef < 120) {
@@ -1068,7 +1204,7 @@ const buildSummary = () => {
     : 0;
 
   const typeEntries = Array.from(state.smashTypeCounts.entries()).sort(
-    (a, b) => b[1] - a[1]
+    (a, b) => b[1] - a[1],
   );
   const topTypes = typeEntries.slice(0, 3).map(([type, count]) => ({
     type: capitalize(type),
@@ -1076,11 +1212,18 @@ const buildSummary = () => {
   }));
 
   const totals = state.smashStatTotals;
-  const avgStats = ["attack", "defense", "special-attack", "special-defense", "speed"]
-    .map((key) => ({
-      label: capitalize(key.replace("-", " ")),
-      value: state.smashCount ? Math.round((totals[key] || 0) / state.smashCount) : 0,
-    }));
+  const avgStats = [
+    "attack",
+    "defense",
+    "special-attack",
+    "special-defense",
+    "speed",
+  ].map((key) => ({
+    label: capitalize(key.replace("-", " ")),
+    value: state.smashCount
+      ? Math.round((totals[key] || 0) / state.smashCount)
+      : 0,
+  }));
 
   return { totalSwipes, smashRate, topTypes, avgStats };
 };
@@ -1098,9 +1241,11 @@ const showSummaryIfNeeded = () => {
   const summary = buildSummary();
   els.summaryContent.innerHTML = `
     <div><strong>${summary.totalSwipes}</strong> swipes · <strong>${summary.smashRate}%</strong> smash rate</div>
-    <div><strong>Top types:</strong> ${summary.topTypes
-      .map((entry) => `${entry.type} (${entry.count})`)
-      .join(", ") || "None yet"}</div>
+    <div><strong>Top types:</strong> ${
+      summary.topTypes
+        .map((entry) => `${entry.type} (${entry.count})`)
+        .join(", ") || "None yet"
+    }</div>
     <div><strong>Avg stats:</strong> ${summary.avgStats
       .map((stat) => `${stat.label} ${stat.value}`)
       .join(" · ")}</div>
@@ -1122,11 +1267,16 @@ const primeQueue = async () => {
   }
 
   const gens = await Promise.all(
-    genIds.map((id) => fetchJson(`${POKEAPI}/generation/${id}`))
+    genIds.map((id) => fetchJson(`${POKEAPI}/generation/${id}`)),
   );
 
-  const names = gens.flatMap((gen) => gen.pokemon_species.map((entry) => entry.name));
-  const filtered = await filterByTypes(names);
+  const names = gens.flatMap((gen) =>
+    gen.pokemon_species.map((entry) => entry.name),
+  );
+  let filtered = await filterByTypes(names);
+  if (els.onlyMega?.checked) {
+    filtered = filtered.filter((name) => MEGA_EVOLUTION_SPECIES.has(name));
+  }
   if (els.dailyDeck.checked) {
     const seed = seedFromDate();
     state.queue = seededShuffle(filtered, seed).slice(0, DAILY_SIZE);
@@ -1138,6 +1288,8 @@ const primeQueue = async () => {
 
 const loadNext = async () => {
   if (state.queue.length === 0) {
+    stopCryPlayback();
+    state.current = null;
     els.queueStatus.textContent = "Deck empty - pick more generations.";
     if (els.mobileQueueStatus) {
       els.mobileQueueStatus.textContent = "Deck empty - pick more generations.";
@@ -1151,6 +1303,7 @@ const loadNext = async () => {
     els.thumbs.innerHTML = "";
     state.currentGallery = [];
     state.currentImage = null;
+    updateCryButton();
     return;
   }
 
@@ -1178,6 +1331,7 @@ const rebuildQueue = async () => {
 
 const shuffleDeck = async () => {
   if (state.isShuffling) return;
+  stopCryPlayback();
   state.isShuffling = true;
   els.shuffleBtn.disabled = true;
   els.shuffleBtn.textContent = "Shuffling...";
@@ -1248,6 +1402,7 @@ const registerAction = (type) => {
 
 const swipe = (direction) => {
   if (!state.current) return;
+  stopCryPlayback();
 
   els.card.dataset.status = direction;
   if (direction === "smash") {
@@ -1269,7 +1424,10 @@ const undoLast = () => {
   if (!state.history.length) return;
 
   const last = state.history.pop();
-  if (state.current?.rawName && last.pokemon.rawName !== state.current.rawName) {
+  if (
+    state.current?.rawName &&
+    last.pokemon.rawName !== state.current.rawName
+  ) {
     state.queue.unshift(state.current.rawName);
   }
 
@@ -1312,7 +1470,10 @@ const clearHistory = () => {
 };
 
 const handlePointerDown = (event) => {
-  if (event.target.closest("button, input, label") || event.target === els.mainImage) {
+  if (
+    event.target.closest("button, input, label") ||
+    event.target === els.mainImage
+  ) {
     return;
   }
   state.isDragging = false;
@@ -1332,8 +1493,10 @@ const handlePointerMove = (event) => {
   const deltaY = event.clientY - state.dragStartY;
 
   if (!state.isDragging) {
-    const horizontal = Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY);
-    const vertical = Math.abs(deltaY) > 12 && Math.abs(deltaY) > Math.abs(deltaX);
+    const horizontal =
+      Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY);
+    const vertical =
+      Math.abs(deltaY) > 12 && Math.abs(deltaY) > Math.abs(deltaX);
     if (!horizontal && vertical) {
       if (isMobileView() && deltaY < 0) {
         state.suppressImageClick = true;
@@ -1368,7 +1531,7 @@ const handlePointerUp = (event) => {
   const deltaY = event.clientY - state.dragStartY;
   const elapsed = performance.now() - state.dragStartTime;
   const velocity = deltaX / Math.max(elapsed, 1);
-  const upwardVelocity = (-deltaY) / Math.max(elapsed, 1);
+  const upwardVelocity = -deltaY / Math.max(elapsed, 1);
   const shouldSwipeRight = deltaX > 120 || velocity > 0.6;
   const shouldSwipeLeft = deltaX < -120 || velocity < -0.6;
   const shouldShuffleUp =
@@ -1381,7 +1544,10 @@ const handlePointerUp = (event) => {
   state.isDragging = false;
   state.dragCandidate = false;
   els.card.classList.remove("dragging");
-  if (state.dragPointerId !== null && els.card.hasPointerCapture(state.dragPointerId)) {
+  if (
+    state.dragPointerId !== null &&
+    els.card.hasPointerCapture(state.dragPointerId)
+  ) {
     els.card.releasePointerCapture(state.dragPointerId);
   }
   els.card.style.transform = "";
@@ -1404,7 +1570,10 @@ const handlePointerCancel = () => {
   state.isDragging = false;
   state.dragCandidate = false;
   els.card.classList.remove("dragging");
-  if (state.dragPointerId !== null && els.card.hasPointerCapture(state.dragPointerId)) {
+  if (
+    state.dragPointerId !== null &&
+    els.card.hasPointerCapture(state.dragPointerId)
+  ) {
     els.card.releasePointerCapture(state.dragPointerId);
   }
   els.card.style.transform = "";
@@ -1472,12 +1641,19 @@ const setupEvents = () => {
   els.shuffleBtn.addEventListener("click", shuffleDeck);
   els.clearHistory.addEventListener("click", clearHistory);
   els.favoriteBtn.addEventListener("click", toggleFavorite);
+  els.cryBtn.addEventListener("click", () => {
+    playCry();
+  });
   els.exportJson.addEventListener("click", () => exportFavorites("json"));
   els.exportCsv.addEventListener("click", () => exportFavorites("csv"));
   els.shareCard.addEventListener("click", shareMatchCard);
   els.helpBtn.addEventListener("click", () => toggleModal(els.helpModal, true));
-  els.helpClose.addEventListener("click", () => toggleModal(els.helpModal, false));
-  els.summaryClose.addEventListener("click", () => toggleModal(els.summaryModal, false));
+  els.helpClose.addEventListener("click", () =>
+    toggleModal(els.helpModal, false),
+  );
+  els.summaryClose.addEventListener("click", () =>
+    toggleModal(els.summaryModal, false),
+  );
   els.summaryModal.addEventListener("click", (event) => {
     if (event.target === els.summaryModal) toggleModal(els.summaryModal, false);
   });
@@ -1487,14 +1663,16 @@ const setupEvents = () => {
   els.peekBtn.addEventListener("click", () => {
     const nowShowing = !els.card.classList.contains("show-stats");
     els.card.classList.toggle("show-stats", nowShowing);
-    els.peekBtn.textContent = nowShowing ? "Hide stats" : "Peek stats";
+    updatePeekButton(nowShowing);
     if (!nowShowing) {
       els.autoReveal.checked = false;
     }
     saveOptions();
   });
   els.selectAll.addEventListener("click", () => {
-    state.selectedGens = new Set(Array.from({ length: GEN_COUNT }, (_, i) => i + 1));
+    state.selectedGens = new Set(
+      Array.from({ length: GEN_COUNT }, (_, i) => i + 1),
+    );
     buildGenFilters();
     saveFilters();
     updateMobileFilterBar();
@@ -1524,7 +1702,7 @@ const setupEvents = () => {
   els.autoReveal.addEventListener("change", () => {
     const showStats = els.autoReveal.checked;
     els.card.classList.toggle("show-stats", showStats);
-    els.peekBtn.textContent = showStats ? "Hide stats" : "Peek stats";
+    updatePeekButton(showStats);
     saveOptions();
     updateMobileFilterBar();
   });
@@ -1538,6 +1716,10 @@ const setupEvents = () => {
   els.dailyDeck.addEventListener("change", () => {
     saveOptions();
     updateMobileFilterBar();
+    rebuildQueue();
+  });
+  els.onlyMega.addEventListener("change", () => {
+    saveOptions();
     rebuildQueue();
   });
   els.keepHistory.addEventListener("change", () => {
@@ -1572,7 +1754,8 @@ const setupEvents = () => {
     if (!state.mobileHubOpen || !els.mobileHub || !els.mobileHubToggle) return;
     const target = event.target;
     if (!(target instanceof Node)) return;
-    if (els.mobileHub.contains(target) || els.mobileHubToggle.contains(target)) return;
+    if (els.mobileHub.contains(target) || els.mobileHubToggle.contains(target))
+      return;
     setMobileHubOpen(false);
   });
 
@@ -1690,16 +1873,18 @@ const init = async () => {
   renderFavorites();
   renderBadges();
   updateUndoLabel();
+  updateCryButton();
   if (els.autoReveal.checked) {
     els.card.classList.add("show-stats");
-    els.peekBtn.textContent = "Hide stats";
+    updatePeekButton(true);
   }
   await rebuildQueue();
 };
 
 const registerServiceWorker = () => {
   if (!("serviceWorker" in navigator)) return;
-  if (location.protocol !== "https:" && location.hostname !== "localhost") return;
+  if (location.protocol !== "https:" && location.hostname !== "localhost")
+    return;
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   });

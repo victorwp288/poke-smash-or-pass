@@ -113,7 +113,8 @@
                   </div>
                 </div>
                 <div class="card-actions">
-                  <button class="pill" id="peekBtn">Peek stats</button>
+                  <button class="pill peek-toggle" id="peekBtn" data-open="false">Peek stats</button>
+                  <button class="pill cry-toggle" id="cryBtn" aria-label="Play Pokemon cry">Play cry</button>
                 </div>
               </div>
               <div class="types" id="typeBadges"></div>
@@ -173,6 +174,10 @@
         <label class="toggle">
           <input type="checkbox" id="dailyDeck" />
           <span>Daily deck (20)</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="onlyMega" />
+          <span>Only Mega-capable</span>
         </label>
         <label class="toggle">
           <input type="checkbox" id="keepHistory" checked />
