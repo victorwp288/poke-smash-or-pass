@@ -38,6 +38,11 @@
     </button>
   </header>
   <div class="mobile-hub" id="mobileHub" aria-hidden="true">
+    <div class="mobile-hub-tools">
+      <button class="pill" id="mobileHubHelp">Help</button>
+      <button class="pill" id="mobileHubFilters">Filters</button>
+      <button class="pill" id="mobileHubClose">Close</button>
+    </div>
     <div class="mobile-hub-head">
       <div class="status-pill" id="mobileQueueStatus">Loading roster...</div>
       <div class="score-pill" id="mobileScoreStatus">Smash 0 - Pass 0</div>
@@ -48,10 +53,12 @@
       <button class="action undo" id="mobileUndoBtn">Undo</button>
       <button class="action shuffle" id="mobileShuffleBtn">Shuffle</button>
     </div>
-    <div class="mobile-hub-tools">
-      <button class="pill" id="mobileHubHelp">Help</button>
-      <button class="pill" id="mobileHubFilters">Filters</button>
-      <button class="pill" id="mobileHubClose">Close</button>
+    <div class="mobile-hub-favorites" aria-label="Saved Pokemon">
+      <div class="mobile-hub-favorites-head">
+        <span>Favorites</span>
+        <span class="mobile-favorites-count" id="mobileFavoritesCount">0</span>
+      </div>
+      <div class="collection mobile-hub-favorites-list" id="mobileFavoriteList"></div>
     </div>
   </div>
 
@@ -79,8 +86,7 @@
             <button class="favorite-fab" id="favoriteBtn" aria-label="Save Pokemon" aria-pressed="false">
               <svg class="heart-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
-                  d="M12 21.35L10.55 20.03C5.4 15.36 2 12.27 2 8.5C2 5.41 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.41 22 8.5C22 12.27 18.6 15.36 13.45 20.03L12 21.35Z"
-                />
+                  d="M12 21.35L10.55 20.03C5.4 15.36 2 12.27 2 8.5C2 5.41 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.41 22 8.5C22 12.27 18.6 15.36 13.45 20.03L12 21.35Z" />
               </svg>
             </button>
             <div class="media">
@@ -109,13 +115,20 @@
         </div>
 
         <div class="mobile-recap" id="mobileRecap" aria-label="Swipe recap">
-          <div class="mobile-recap-row">
-            <span class="mobile-recap-label">Smash</span>
-            <div class="mobile-recap-list" id="mobileSmashRecap"></div>
+
+          <div class="mobile-recap-row mobile-recap-row-smash">
+            <div class="mobile-recap-chip">
+              <span class="mobile-recap-label">Smash</span>
+              <span class="mobile-recap-count" id="mobileSmashCount">0</span>
+            </div>
+            <div class="mobile-recap-list" id="mobileSmashRecap" aria-label="Recent smashed Pokemon"></div>
           </div>
-          <div class="mobile-recap-row">
-            <span class="mobile-recap-label">Pass</span>
-            <div class="mobile-recap-list" id="mobilePassRecap"></div>
+          <div class="mobile-recap-row mobile-recap-row-pass">
+            <div class="mobile-recap-chip">
+              <span class="mobile-recap-label">Pass</span>
+              <span class="mobile-recap-count" id="mobilePassCount">0</span>
+            </div>
+            <div class="mobile-recap-list" id="mobilePassRecap" aria-label="Recent passed Pokemon"></div>
           </div>
         </div>
 
@@ -127,7 +140,7 @@
         </div>
         <div class="hint">
           <span class="hint-desktop">Tip: swipe with your trackpad or use left/right arrow keys.</span>
-          <span class="hint-mobile">Tip: swipe left or right on the card.</span>
+          <span class="hint-mobile">Tip: swipe left or right to vote, swipe up to shuffle.</span>
         </div>
       </div>
     </section>

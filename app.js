@@ -7,6 +7,10 @@ const FAV_KEY = "smashdex_favorites";
 const SUMMARY_INTERVAL = 20;
 const DAILY_SIZE = 20;
 const PRELOAD_COUNT = 2;
+const MOBILE_VIEW_QUERY = "(max-width: 980px)";
+const SHUFFLE_SWIPE_MIN_DISTANCE = 120;
+const SHUFFLE_SWIPE_MAX_HORIZONTAL_DRIFT = 72;
+const SHUFFLE_SWIPE_MIN_VELOCITY = 0.45;
 
 const els = {
   cardShell: document.getElementById("cardShell"),
@@ -39,6 +43,8 @@ const els = {
   clearHistory: document.getElementById("clearHistory"),
   badgeList: document.getElementById("badgeList"),
   favoriteList: document.getElementById("favoriteList"),
+  mobileFavoriteList: document.getElementById("mobileFavoriteList"),
+  mobileFavoritesCount: document.getElementById("mobileFavoritesCount"),
   exportJson: document.getElementById("exportJson"),
   exportCsv: document.getElementById("exportCsv"),
   shareCard: document.getElementById("shareCard"),
@@ -57,6 +63,8 @@ const els = {
   mobileRecap: document.getElementById("mobileRecap"),
   mobileSmashRecap: document.getElementById("mobileSmashRecap"),
   mobilePassRecap: document.getElementById("mobilePassRecap"),
+  mobileSmashCount: document.getElementById("mobileSmashCount"),
+  mobilePassCount: document.getElementById("mobilePassCount"),
   summaryModal: document.getElementById("summaryModal"),
   summaryContent: document.getElementById("summaryContent"),
   summaryClose: document.getElementById("summaryClose"),
@@ -160,6 +168,7 @@ const getTypeIconUrl = (type) => {
 };
 
 const TYPE_LIST = Object.keys(typeColors);
+const isMobileView = () => window.matchMedia(MOBILE_VIEW_QUERY).matches;
 
 const capitalize = (value) =>
   value
@@ -464,11 +473,11 @@ const renderMobileRecap = () => {
 
   const renderLane = (entries, container) => {
     container.innerHTML = "";
-    const recent = entries.slice(-8).reverse();
+    const recent = entries.slice(-5).reverse();
     if (!recent.length) {
       const empty = document.createElement("span");
       empty.className = "mobile-recap-empty";
-      empty.textContent = "None";
+      empty.textContent = "No picks";
       container.appendChild(empty);
       return;
     }
@@ -491,6 +500,12 @@ const renderMobileRecap = () => {
 
   renderLane(state.smashing, els.mobileSmashRecap);
   renderLane(state.passing, els.mobilePassRecap);
+  if (els.mobileSmashCount) {
+    els.mobileSmashCount.textContent = String(state.smashing.length);
+  }
+  if (els.mobilePassCount) {
+    els.mobilePassCount.textContent = String(state.passing.length);
+  }
 };
 
 const chooseFlavorText = (entries) => {
@@ -789,22 +804,39 @@ const setMobileHubOpen = (open) => {
   document.body.classList.toggle("mobile-hub-open", open);
 };
 
+const createFavoriteChip = (entry) => {
+  const chip = document.createElement("span");
+  chip.className = "collect-item";
+  if (entry.thumb) {
+    const img = document.createElement("img");
+    img.src = entry.thumb;
+    img.alt = entry.name;
+    chip.appendChild(img);
+  }
+  const label = document.createElement("span");
+  label.textContent = entry.name;
+  chip.appendChild(label);
+  return chip;
+};
+
 const renderFavorites = () => {
-  els.favoriteList.innerHTML = "";
-  state.favorites.forEach((entry) => {
-    const chip = document.createElement("span");
-    chip.className = "collect-item";
-    if (entry.thumb) {
-      const img = document.createElement("img");
-      img.src = entry.thumb;
-      img.alt = entry.name;
-      chip.appendChild(img);
+  const targets = [els.favoriteList, els.mobileFavoriteList].filter(Boolean);
+  targets.forEach((container) => {
+    container.innerHTML = "";
+    if (!state.favorites.length && container === els.mobileFavoriteList) {
+      const empty = document.createElement("span");
+      empty.className = "mobile-favorites-empty";
+      empty.textContent = "No saved Pokemon yet";
+      container.appendChild(empty);
+      return;
     }
-    const label = document.createElement("span");
-    label.textContent = entry.name;
-    chip.appendChild(label);
-    els.favoriteList.appendChild(chip);
+    state.favorites.forEach((entry) => {
+      container.appendChild(createFavoriteChip(entry));
+    });
   });
+  if (els.mobileFavoritesCount) {
+    els.mobileFavoritesCount.textContent = String(state.favorites.length);
+  }
 };
 
 const toggleFavorite = () => {
@@ -1285,6 +1317,10 @@ const handlePointerMove = (event) => {
     const horizontal = Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY);
     const vertical = Math.abs(deltaY) > 12 && Math.abs(deltaY) > Math.abs(deltaX);
     if (!horizontal && vertical) {
+      if (isMobileView() && deltaY < 0) {
+        state.suppressImageClick = true;
+        return;
+      }
       state.dragCandidate = false;
       els.card.classList.remove("dragging");
       return;
@@ -1311,10 +1347,18 @@ const handlePointerMove = (event) => {
 const handlePointerUp = (event) => {
   if (!state.dragCandidate) return;
   const deltaX = event.clientX - state.dragStart;
+  const deltaY = event.clientY - state.dragStartY;
   const elapsed = performance.now() - state.dragStartTime;
   const velocity = deltaX / Math.max(elapsed, 1);
+  const upwardVelocity = (-deltaY) / Math.max(elapsed, 1);
   const shouldSwipeRight = deltaX > 120 || velocity > 0.6;
   const shouldSwipeLeft = deltaX < -120 || velocity < -0.6;
+  const shouldShuffleUp =
+    isMobileView() &&
+    !state.isShuffling &&
+    Math.abs(deltaX) < SHUFFLE_SWIPE_MAX_HORIZONTAL_DRIFT &&
+    deltaY < -SHUFFLE_SWIPE_MIN_DISTANCE &&
+    upwardVelocity > SHUFFLE_SWIPE_MIN_VELOCITY;
 
   state.isDragging = false;
   state.dragCandidate = false;
@@ -1328,9 +1372,25 @@ const handlePointerUp = (event) => {
     swipe("smash");
   } else if (shouldSwipeLeft) {
     swipe("pass");
+  } else if (shouldShuffleUp) {
+    shuffleDeck();
   } else {
     els.card.dataset.status = "";
   }
+  state.dragX = 0;
+  state.dragPointerId = null;
+};
+
+const handlePointerCancel = () => {
+  if (!state.dragCandidate) return;
+  state.isDragging = false;
+  state.dragCandidate = false;
+  els.card.classList.remove("dragging");
+  if (state.dragPointerId !== null && els.card.hasPointerCapture(state.dragPointerId)) {
+    els.card.releasePointerCapture(state.dragPointerId);
+  }
+  els.card.style.transform = "";
+  els.card.dataset.status = "";
   state.dragX = 0;
   state.dragPointerId = null;
 };
@@ -1471,7 +1531,7 @@ const setupEvents = () => {
   els.card.addEventListener("pointerdown", handlePointerDown);
   els.card.addEventListener("pointermove", handlePointerMove);
   els.card.addEventListener("pointerup", handlePointerUp);
-  els.card.addEventListener("pointercancel", handlePointerUp);
+  els.card.addEventListener("pointercancel", handlePointerCancel);
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "ArrowLeft") swipe("pass");
