@@ -824,6 +824,38 @@ const parseStoneMethodLabel = (methodLabel) => {
   };
 };
 
+const EVOLUTION_FORM_METHOD_OVERRIDES = {
+  ninetales: [{ pattern: /\bIce Stone\b/i, suffix: "Alola" }],
+  sandslash: [{ pattern: /\bIce Stone\b/i, suffix: "Alola" }],
+  slowbro: [{ pattern: /\bGalarica Cuff\b/i, suffix: "Galar" }],
+  slowking: [{ pattern: /\bGalarica Wreath\b/i, suffix: "Galar" }],
+};
+
+const getEvolutionFormSuffixForMethod = (speciesName, methodLabel) => {
+  if (!speciesName || !methodLabel) return "";
+  const rules = EVOLUTION_FORM_METHOD_OVERRIDES[speciesName] || [];
+  const matchedRule = rules.find((rule) => rule.pattern.test(methodLabel));
+  return matchedRule?.suffix || "";
+};
+
+const splitEvolutionEntryVariants = (entry) => {
+  const labels = Array.isArray(entry.methodLabels) ? entry.methodLabels : [];
+  const hasFormSpecificMethod = labels.some((methodLabel) =>
+    Boolean(getEvolutionFormSuffixForMethod(entry.name, methodLabel)),
+  );
+  if (!hasFormSpecificMethod || labels.length <= 1) {
+    return [{ label: entry.label, methodLabels: labels }];
+  }
+  return labels.map((methodLabel) => {
+    const suffix = getEvolutionFormSuffixForMethod(entry.name, methodLabel);
+    const variantLabel = suffix ? `${entry.label} (${suffix})` : entry.label;
+    return {
+      label: variantLabel,
+      methodLabels: [methodLabel],
+    };
+  });
+};
+
 const formatEvolutionDetail = (detail) => {
   if (!detail || typeof detail !== "object") return "Special";
   const trigger = detail.trigger?.name || "";
@@ -974,6 +1006,14 @@ const renderEvolutionLine = (stages, currentRawName) => {
     els.evolutionLine.hidden = true;
     return;
   }
+  const totalEntries = stages.reduce(
+    (sum, stage) => sum + (Array.isArray(stage) ? stage.length : 0),
+    0,
+  );
+  if (totalEntries <= 1) {
+    els.evolutionLine.hidden = true;
+    return;
+  }
 
   const flow = document.createElement("div");
   flow.className = "evo-flow";
@@ -986,82 +1026,86 @@ const renderEvolutionLine = (stages, currentRawName) => {
     }
 
     stage.forEach((entry) => {
-      const branch = document.createElement("div");
-      branch.className = "evo-branch";
+      const entryVariants = splitEvolutionEntryVariants(entry);
+      entryVariants.forEach((variant) => {
+        const branch = document.createElement("div");
+        branch.className = "evo-branch";
 
-      const node = document.createElement("span");
-      node.className = "evo-node";
-      if (entry.name === currentRawName) {
-        node.classList.add("is-current");
-      }
+        const node = document.createElement("span");
+        node.className = "evo-node";
+        const isVariantLabel = variant.label !== entry.label;
+        if (entry.name === currentRawName && !isVariantLabel) {
+          node.classList.add("is-current");
+        }
 
-      const sprite = document.createElement("img");
-      sprite.className = "evo-sprite";
-      sprite.alt = `${entry.label} sprite`;
-      sprite.loading = "lazy";
-      sprite.decoding = "async";
-      if (entry.sprite) {
-        sprite.src = entry.sprite;
-        sprite.addEventListener("error", () => {
+        const sprite = document.createElement("img");
+        sprite.className = "evo-sprite";
+        sprite.alt = `${variant.label} sprite`;
+        sprite.loading = "lazy";
+        sprite.decoding = "async";
+        if (entry.sprite) {
+          sprite.src = entry.sprite;
+          sprite.addEventListener("error", () => {
+            sprite.classList.add("is-missing");
+          });
+        } else {
           sprite.classList.add("is-missing");
-        });
-      } else {
-        sprite.classList.add("is-missing");
-      }
+        }
 
-      const label = document.createElement("span");
-      label.className = "evo-name";
-      label.textContent = entry.label;
+        const label = document.createElement("span");
+        label.className = "evo-name";
+        label.textContent = variant.label;
 
-      node.appendChild(sprite);
-      node.appendChild(label);
-      branch.appendChild(node);
+        node.appendChild(sprite);
+        node.appendChild(label);
+        branch.appendChild(node);
 
-      if (entry.isLaterGenEvolution && entry.generation) {
-        const genBadge = document.createElement("span");
-        genBadge.className = "evo-gen-badge";
-        genBadge.textContent = `Gen ${entry.generation}`;
-        branch.appendChild(genBadge);
-      }
+        if (entry.isLaterGenEvolution && entry.generation) {
+          const genBadge = document.createElement("span");
+          genBadge.className = "evo-gen-badge";
+          genBadge.textContent = `Gen ${entry.generation}`;
+          branch.appendChild(genBadge);
+        }
 
-      if (entry.methodLabels.length) {
-        const methods = document.createElement("div");
-        methods.className = "evo-methods";
-        entry.methodLabels.forEach((methodLabel) => {
-          const method = document.createElement("span");
-          method.className = "evo-method";
-          const stoneMethod = parseStoneMethodLabel(methodLabel);
-          if (stoneMethod) {
-            method.classList.add("evo-method-stone");
-            const stoneIcon = document.createElement("img");
-            stoneIcon.className = "evo-method-stone-icon";
-            stoneIcon.src = stoneMethod.sprite;
-            stoneIcon.alt = `${stoneMethod.label} icon`;
-            stoneIcon.loading = "lazy";
-            stoneIcon.decoding = "async";
-            stoneIcon.addEventListener("error", () => {
-              stoneIcon.classList.add("is-missing");
-            });
-            const stoneName = document.createElement("span");
-            stoneName.className = "evo-method-stone-name";
-            stoneName.textContent = stoneMethod.label;
-            method.appendChild(stoneIcon);
-            method.appendChild(stoneName);
-            if (stoneMethod.extraLabel) {
-              const extraInfo = document.createElement("span");
-              extraInfo.className = "evo-method-stone-extra";
-              extraInfo.textContent = `· ${stoneMethod.extraLabel}`;
-              method.appendChild(extraInfo);
+        if (variant.methodLabels.length) {
+          const methods = document.createElement("div");
+          methods.className = "evo-methods";
+          variant.methodLabels.forEach((methodLabel) => {
+            const method = document.createElement("span");
+            method.className = "evo-method";
+            const stoneMethod = parseStoneMethodLabel(methodLabel);
+            if (stoneMethod) {
+              method.classList.add("evo-method-stone");
+              const stoneIcon = document.createElement("img");
+              stoneIcon.className = "evo-method-stone-icon";
+              stoneIcon.src = stoneMethod.sprite;
+              stoneIcon.alt = `${stoneMethod.label} icon`;
+              stoneIcon.loading = "lazy";
+              stoneIcon.decoding = "async";
+              stoneIcon.addEventListener("error", () => {
+                stoneIcon.classList.add("is-missing");
+              });
+              const stoneName = document.createElement("span");
+              stoneName.className = "evo-method-stone-name";
+              stoneName.textContent = stoneMethod.label;
+              method.appendChild(stoneIcon);
+              method.appendChild(stoneName);
+              if (stoneMethod.extraLabel) {
+                const extraInfo = document.createElement("span");
+                extraInfo.className = "evo-method-stone-extra";
+                extraInfo.textContent = `· ${stoneMethod.extraLabel}`;
+                method.appendChild(extraInfo);
+              }
+            } else {
+              method.textContent = methodLabel;
             }
-          } else {
-            method.textContent = methodLabel;
-          }
-          methods.appendChild(method);
-        });
-        branch.appendChild(methods);
-      }
+            methods.appendChild(method);
+          });
+          branch.appendChild(methods);
+        }
 
-      stageEl.appendChild(branch);
+        stageEl.appendChild(branch);
+      });
     });
 
     flow.appendChild(stageEl);
@@ -1104,14 +1148,6 @@ const renderTypes = (types, canMega = false, categoryTags = []) => {
     els.types.appendChild(badge);
   });
 
-  categoryTags.forEach((tag) => {
-    if (!CATEGORY_LABELS[tag]) return;
-    const chip = document.createElement("span");
-    chip.className = `category-chip category-${tag}`;
-    chip.textContent = CATEGORY_LABELS[tag];
-    els.types.appendChild(chip);
-  });
-
   if (canMega) {
     const megaBadge = document.createElement("span");
     megaBadge.className = "type-mega";
@@ -1120,6 +1156,17 @@ const renderTypes = (types, canMega = false, categoryTags = []) => {
     megaBadge.innerHTML = `<span class="mega-icon" aria-hidden="true"><img src="${MEGA_ICON_URL}" alt="" loading="lazy" decoding="async" /></span>`;
     els.types.appendChild(megaBadge);
   }
+
+  categoryTags.forEach((tag, index) => {
+    if (!CATEGORY_LABELS[tag]) return;
+    const chip = document.createElement("span");
+    chip.className = `category-chip category-${tag}`;
+    if (index === 0) {
+      chip.classList.add("category-chip-meta");
+    }
+    chip.textContent = CATEGORY_LABELS[tag];
+    els.types.appendChild(chip);
+  });
 };
 
 const setMainImage = (url) => {
