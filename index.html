@@ -55,12 +55,36 @@
     </div>
     <div class="mobile-hub-history" aria-label="Swipe history">
       <div class="mobile-hub-history-lane">
-        <div class="mobile-hub-history-title">Smash list</div>
-        <div class="collection mobile-hub-history-list" id="mobileHubSmashList"></div>
+        <button
+          class="mobile-hub-history-head"
+          id="mobileHubSmashToggle"
+          aria-expanded="false"
+          aria-controls="mobileHubSmashPanel"
+          type="button"
+        >
+          <span class="mobile-hub-history-title">Smash list</span>
+          <span class="mobile-hub-history-count" id="mobileHubSmashCount">0</span>
+          <span class="mobile-hub-history-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="mobile-hub-history-panel" id="mobileHubSmashPanel" hidden>
+          <div class="collection wrap mobile-hub-history-list" id="mobileHubSmashList"></div>
+        </div>
       </div>
       <div class="mobile-hub-history-lane">
-        <div class="mobile-hub-history-title">Pass list</div>
-        <div class="collection mobile-hub-history-list" id="mobileHubPassList"></div>
+        <button
+          class="mobile-hub-history-head"
+          id="mobileHubPassToggle"
+          aria-expanded="false"
+          aria-controls="mobileHubPassPanel"
+          type="button"
+        >
+          <span class="mobile-hub-history-title">Pass list</span>
+          <span class="mobile-hub-history-count" id="mobileHubPassCount">0</span>
+          <span class="mobile-hub-history-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="mobile-hub-history-panel" id="mobileHubPassPanel" hidden>
+          <div class="collection wrap mobile-hub-history-list" id="mobileHubPassList"></div>
+        </div>
       </div>
     </div>
     <div class="mobile-hub-favorites" aria-label="Saved Pokemon">
@@ -119,6 +143,7 @@
               </div>
               <div class="types" id="typeBadges"></div>
               <p class="bio" id="bio"></p>
+              <div class="evolution" id="evolutionLine" aria-label="Evolution line" hidden></div>
               <div class="stats" id="stats"></div>
             </div>
           </div>

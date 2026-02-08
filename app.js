@@ -11,6 +11,8 @@ const MOBILE_VIEW_QUERY = "(max-width: 980px)";
 const SHUFFLE_SWIPE_MIN_DISTANCE = 120;
 const SHUFFLE_SWIPE_MAX_HORIZONTAL_DRIFT = 72;
 const SHUFFLE_SWIPE_MIN_VELOCITY = 0.45;
+const SPRITE_CDN =
+  "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
 const HEIGHT_ICON_URL = "icons/height.svg";
 const WEIGHT_ICON_URL = "icons/weight.svg";
 const MEGA_ICON_URL = "icons/megaevolution.webp";
@@ -24,6 +26,7 @@ const els = {
   id: document.getElementById("pokeId"),
   types: document.getElementById("typeBadges"),
   bio: document.getElementById("bio"),
+  evolutionLine: document.getElementById("evolutionLine"),
   stats: document.getElementById("stats"),
   passBtn: document.getElementById("passBtn"),
   smashBtn: document.getElementById("smashBtn"),
@@ -65,8 +68,14 @@ const els = {
   mobileHubHelp: document.getElementById("mobileHubHelp"),
   mobileHubFilters: document.getElementById("mobileHubFilters"),
   mobileHubClose: document.getElementById("mobileHubClose"),
+  mobileHubSmashToggle: document.getElementById("mobileHubSmashToggle"),
+  mobileHubPassToggle: document.getElementById("mobileHubPassToggle"),
+  mobileHubSmashPanel: document.getElementById("mobileHubSmashPanel"),
+  mobileHubPassPanel: document.getElementById("mobileHubPassPanel"),
   mobileHubSmashList: document.getElementById("mobileHubSmashList"),
   mobileHubPassList: document.getElementById("mobileHubPassList"),
+  mobileHubSmashCount: document.getElementById("mobileHubSmashCount"),
+  mobileHubPassCount: document.getElementById("mobileHubPassCount"),
   summaryModal: document.getElementById("summaryModal"),
   summaryContent: document.getElementById("summaryContent"),
   summaryClose: document.getElementById("summaryClose"),
@@ -94,6 +103,7 @@ const state = {
   currentGallery: [],
   cache: new Map(),
   typeIndex: new Map(),
+  evolutionChainCache: new Map(),
   smashing: [],
   passing: [],
   history: [],
@@ -513,25 +523,63 @@ const renderHistory = (items, containers) => {
   const targets = (
     Array.isArray(containers) ? containers : [containers]
   ).filter(Boolean);
+
+  const isSmashLane = targets.includes(els.mobileHubSmashList);
+  const isPassLane = targets.includes(els.mobileHubPassList);
+  const visibleCount = els.keepHistory.checked ? items.length : 0;
+  if (isSmashLane && els.mobileHubSmashCount) {
+    els.mobileHubSmashCount.textContent = String(visibleCount);
+  }
+  if (isPassLane && els.mobileHubPassCount) {
+    els.mobileHubPassCount.textContent = String(visibleCount);
+  }
+
   targets.forEach((container) => {
     container.innerHTML = "";
   });
   if (!els.keepHistory.checked) {
+    targets.forEach((container) => {
+      const isMobileLane =
+        container === els.mobileHubSmashList ||
+        container === els.mobileHubPassList;
+      if (!isMobileLane) return;
+      const empty = document.createElement("span");
+      empty.className = "mobile-hub-history-empty";
+      empty.textContent = "History off";
+      container.appendChild(empty);
+    });
     return;
   }
-  items.slice(-12).forEach((entry) => {
-    targets.forEach((container) => {
-      const chip = document.createElement("span");
-      chip.className = "collect-item";
-      if (entry.thumb) {
-        const img = document.createElement("img");
-        img.src = entry.thumb;
-        img.alt = entry.name;
-        chip.appendChild(img);
-      }
-      const label = document.createElement("span");
-      label.textContent = entry.name;
-      chip.appendChild(label);
+
+  const createChip = (entry) => {
+    const chip = document.createElement("span");
+    chip.className = "collect-item";
+    if (entry.thumb) {
+      const img = document.createElement("img");
+      img.src = entry.thumb;
+      img.alt = entry.name;
+      chip.appendChild(img);
+    }
+    const label = document.createElement("span");
+    label.textContent = entry.name;
+    chip.appendChild(label);
+    return chip;
+  };
+
+  targets.forEach((container) => {
+    const isMobileLane =
+      container === els.mobileHubSmashList ||
+      container === els.mobileHubPassList;
+    const list = isMobileLane ? items : items.slice(-12);
+    if (isMobileLane && !list.length) {
+      const empty = document.createElement("span");
+      empty.className = "mobile-hub-history-empty";
+      empty.textContent = "No picks yet";
+      container.appendChild(empty);
+      return;
+    }
+    list.forEach((entry) => {
+      const chip = createChip(entry);
       container.appendChild(chip);
     });
   });
@@ -614,6 +662,130 @@ const getSpriteScale = (pokemon) => {
   return Math.min(1.02, Math.max(0.62, scaled));
 };
 
+const getSpeciesIdFromUrl = (url) => {
+  if (typeof url !== "string") return null;
+  const match = url.match(/\/pokemon-species\/(\d+)\/?$/);
+  return match ? Number(match[1]) : null;
+};
+
+const getSpeciesSpriteUrl = (id) => {
+  if (!Number.isInteger(id) || id <= 0) return "";
+  return `${SPRITE_CDN}/${id}.png`;
+};
+
+const buildEvolutionStages = (root) => {
+  if (!root) return [];
+  const stageMaps = [];
+
+  const visitNode = (node, depth) => {
+    if (!node?.species?.name) return;
+    if (!stageMaps[depth]) {
+      stageMaps[depth] = new Map();
+    }
+
+    const speciesName = node.species.name;
+    if (!stageMaps[depth].has(speciesName)) {
+      const id = getSpeciesIdFromUrl(node.species.url);
+      stageMaps[depth].set(speciesName, {
+        name: speciesName,
+        label: capitalize(speciesName),
+        id,
+        sprite: getSpeciesSpriteUrl(id),
+      });
+    }
+
+    const evolvesTo = Array.isArray(node.evolves_to) ? node.evolves_to : [];
+    evolvesTo.forEach((next) => visitNode(next, depth + 1));
+  };
+
+  visitNode(root, 0);
+  return stageMaps.filter(Boolean).map((stage) => Array.from(stage.values()));
+};
+
+const loadEvolutionLine = async (chainUrl) => {
+  if (!chainUrl) return [];
+  if (state.evolutionChainCache.has(chainUrl)) {
+    return state.evolutionChainCache.get(chainUrl);
+  }
+
+  try {
+    const chain = await fetchJson(chainUrl);
+    const stages = buildEvolutionStages(chain.chain);
+    state.evolutionChainCache.set(chainUrl, stages);
+    return stages;
+  } catch {
+    state.evolutionChainCache.set(chainUrl, []);
+    return [];
+  }
+};
+
+const renderEvolutionLine = (stages, currentRawName) => {
+  if (!els.evolutionLine) return;
+  els.evolutionLine.innerHTML = "";
+
+  if (!Array.isArray(stages) || stages.length === 0) {
+    els.evolutionLine.hidden = true;
+    return;
+  }
+
+  const title = document.createElement("div");
+  title.className = "evo-title";
+  title.textContent = "";
+
+  const flow = document.createElement("div");
+  flow.className = "evo-flow";
+
+  stages.forEach((stage, stageIndex) => {
+    const stageEl = document.createElement("div");
+    stageEl.className = "evo-stage";
+    if (stage.length > 1) {
+      stageEl.classList.add("is-branch");
+    }
+
+    stage.forEach((entry) => {
+      const node = document.createElement("span");
+      node.className = "evo-node";
+      if (entry.name === currentRawName) {
+        node.classList.add("is-current");
+      }
+
+      const sprite = document.createElement("img");
+      sprite.className = "evo-sprite";
+      sprite.alt = `${entry.label} sprite`;
+      sprite.loading = "lazy";
+      sprite.decoding = "async";
+      if (entry.sprite) {
+        sprite.src = entry.sprite;
+        sprite.addEventListener("error", () => {
+          sprite.classList.add("is-missing");
+        });
+      } else {
+        sprite.classList.add("is-missing");
+      }
+
+      const label = document.createElement("span");
+      label.className = "evo-name";
+      label.textContent = entry.label;
+
+      node.appendChild(sprite);
+      node.appendChild(label);
+      stageEl.appendChild(node);
+    });
+
+    flow.appendChild(stageEl);
+    if (stageIndex < stages.length - 1) {
+      const arrow = document.createElement("span");
+      arrow.className = "evo-arrow";
+      arrow.textContent = "→";
+      flow.appendChild(arrow);
+    }
+  });
+
+  els.evolutionLine.appendChild(title);
+  els.evolutionLine.appendChild(flow);
+  els.evolutionLine.hidden = false;
+};
+
 const renderTypes = (types, canMega = false) => {
   els.types.innerHTML = "";
   types.forEach((type) => {
@@ -691,6 +863,7 @@ const setCardData = (pokemon) => {
     els.genLabel.textContent = gen ? `Gen ${gen}` : "Gen ?";
   }
   els.bio.textContent = pokemon.bio;
+  renderEvolutionLine(pokemon.evolution, pokemon.rawName);
   els.stats.innerHTML = `${formatVitals(pokemon)}${formatStats(pokemon.stats)}`;
   renderTypes(pokemon.types, pokemon.canMegaEvolve);
   const primaryType = pokemon.types[0]?.type?.name;
@@ -780,6 +953,7 @@ const loadPokemon = async (name) => {
     fetchJson(`${POKEAPI}/pokemon/${name}`),
     fetchJson(`${POKEAPI}/pokemon-species/${name}`),
   ]);
+  const evolution = await loadEvolutionLine(species.evolution_chain?.url);
 
   const pokemon = {
     id: details.id,
@@ -791,6 +965,7 @@ const loadPokemon = async (name) => {
     canMegaEvolve: MEGA_EVOLUTION_SPECIES.has(
       details.species?.name || details.name,
     ),
+    evolution,
     types: details.types,
     stats: details.stats,
     bio: chooseFlavorText(species.flavor_text_entries),
@@ -938,6 +1113,16 @@ const updateMobileFilterBar = () => {
   syncToggle(els.mobileShiny, els.shinyMode);
 };
 
+const setMobileHistoryPanelOpen = (lane, open) => {
+  const isSmash = lane === "smash";
+  const toggle = isSmash ? els.mobileHubSmashToggle : els.mobileHubPassToggle;
+  const panel = isSmash ? els.mobileHubSmashPanel : els.mobileHubPassPanel;
+  if (!toggle || !panel) return;
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  toggle.classList.toggle("is-open", open);
+  panel.hidden = !open;
+};
+
 const setMobileHubOpen = (open) => {
   if (!els.mobileHub || !els.mobileHubToggle) return;
   state.mobileHubOpen = open;
@@ -945,6 +1130,10 @@ const setMobileHubOpen = (open) => {
   els.mobileHub.setAttribute("aria-hidden", open ? "false" : "true");
   els.mobileHubToggle.setAttribute("aria-expanded", open ? "true" : "false");
   document.body.classList.toggle("mobile-hub-open", open);
+  if (!open) {
+    setMobileHistoryPanelOpen("smash", false);
+    setMobileHistoryPanelOpen("pass", false);
+  }
 };
 
 const createFavoriteChip = (entry) => {
@@ -1299,6 +1488,10 @@ const loadNext = async () => {
     els.mainImage.removeAttribute("src");
     els.mainImage.style.removeProperty("--sprite-scale");
     els.types.innerHTML = "";
+    if (els.evolutionLine) {
+      els.evolutionLine.innerHTML = "";
+      els.evolutionLine.hidden = true;
+    }
     els.stats.innerHTML = "";
     els.thumbs.innerHTML = "";
     state.currentGallery = [];
@@ -1802,6 +1995,24 @@ const setupEvents = () => {
 
   if (els.mobileHubClose) {
     els.mobileHubClose.addEventListener("click", () => setMobileHubOpen(false));
+  }
+
+  if (els.mobileHubSmashToggle) {
+    els.mobileHubSmashToggle.addEventListener("click", () => {
+      const next =
+        els.mobileHubSmashToggle.getAttribute("aria-expanded") !== "true";
+      setMobileHistoryPanelOpen("smash", next);
+      if (next) setMobileHistoryPanelOpen("pass", false);
+    });
+  }
+
+  if (els.mobileHubPassToggle) {
+    els.mobileHubPassToggle.addEventListener("click", () => {
+      const next =
+        els.mobileHubPassToggle.getAttribute("aria-expanded") !== "true";
+      setMobileHistoryPanelOpen("pass", next);
+      if (next) setMobileHistoryPanelOpen("smash", false);
+    });
   }
 
   if (els.mobilePassBtn) {
