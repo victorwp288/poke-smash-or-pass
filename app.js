@@ -60,11 +60,8 @@ const els = {
   mobileHubHelp: document.getElementById("mobileHubHelp"),
   mobileHubFilters: document.getElementById("mobileHubFilters"),
   mobileHubClose: document.getElementById("mobileHubClose"),
-  mobileRecap: document.getElementById("mobileRecap"),
-  mobileSmashRecap: document.getElementById("mobileSmashRecap"),
-  mobilePassRecap: document.getElementById("mobilePassRecap"),
-  mobileSmashCount: document.getElementById("mobileSmashCount"),
-  mobilePassCount: document.getElementById("mobilePassCount"),
+  mobileHubSmashList: document.getElementById("mobileHubSmashList"),
+  mobileHubPassList: document.getElementById("mobileHubPassList"),
   summaryModal: document.getElementById("summaryModal"),
   summaryContent: document.getElementById("summaryContent"),
   summaryClose: document.getElementById("summaryClose"),
@@ -168,6 +165,54 @@ const getTypeIconUrl = (type) => {
 };
 
 const TYPE_LIST = Object.keys(typeColors);
+const MEGA_EVOLUTION_SPECIES = new Set([
+  "venusaur",
+  "charizard",
+  "blastoise",
+  "beedrill",
+  "pidgeot",
+  "alakazam",
+  "slowbro",
+  "gengar",
+  "kangaskhan",
+  "pinsir",
+  "gyarados",
+  "aerodactyl",
+  "mewtwo",
+  "ampharos",
+  "steelix",
+  "scizor",
+  "heracross",
+  "houndoom",
+  "tyranitar",
+  "sceptile",
+  "blaziken",
+  "swampert",
+  "gardevoir",
+  "sableye",
+  "mawile",
+  "aggron",
+  "medicham",
+  "manectric",
+  "sharpedo",
+  "camerupt",
+  "altaria",
+  "banette",
+  "absol",
+  "glalie",
+  "salamence",
+  "metagross",
+  "latias",
+  "latios",
+  "lopunny",
+  "garchomp",
+  "lucario",
+  "abomasnow",
+  "gallade",
+  "audino",
+  "diancie",
+  "rayquaza",
+]);
 const isMobileView = () => window.matchMedia(MOBILE_VIEW_QUERY).matches;
 
 const capitalize = (value) =>
@@ -447,65 +492,30 @@ const updateCounts = () => {
   }
 };
 
-const renderHistory = (items, container) => {
-  container.innerHTML = "";
+const renderHistory = (items, containers) => {
+  const targets = (Array.isArray(containers) ? containers : [containers]).filter(Boolean);
+  targets.forEach((container) => {
+    container.innerHTML = "";
+  });
   if (!els.keepHistory.checked) {
     return;
   }
   items.slice(-12).forEach((entry) => {
-    const chip = document.createElement("span");
-    chip.className = "collect-item";
-    if (entry.thumb) {
-      const img = document.createElement("img");
-      img.src = entry.thumb;
-      img.alt = entry.name;
-      chip.appendChild(img);
-    }
-    const label = document.createElement("span");
-    label.textContent = entry.name;
-    chip.appendChild(label);
-    container.appendChild(chip);
-  });
-};
-
-const renderMobileRecap = () => {
-  if (!els.mobileSmashRecap || !els.mobilePassRecap) return;
-
-  const renderLane = (entries, container) => {
-    container.innerHTML = "";
-    const recent = entries.slice(-5).reverse();
-    if (!recent.length) {
-      const empty = document.createElement("span");
-      empty.className = "mobile-recap-empty";
-      empty.textContent = "No picks";
-      container.appendChild(empty);
-      return;
-    }
-
-    recent.forEach((entry) => {
-      const item = document.createElement("span");
-      item.className = "mobile-recap-item";
-      item.title = entry.name;
+    targets.forEach((container) => {
+      const chip = document.createElement("span");
+      chip.className = "collect-item";
       if (entry.thumb) {
         const img = document.createElement("img");
         img.src = entry.thumb;
         img.alt = entry.name;
-        item.appendChild(img);
-      } else {
-        item.textContent = entry.name.charAt(0).toUpperCase();
+        chip.appendChild(img);
       }
-      container.appendChild(item);
+      const label = document.createElement("span");
+      label.textContent = entry.name;
+      chip.appendChild(label);
+      container.appendChild(chip);
     });
-  };
-
-  renderLane(state.smashing, els.mobileSmashRecap);
-  renderLane(state.passing, els.mobilePassRecap);
-  if (els.mobileSmashCount) {
-    els.mobileSmashCount.textContent = String(state.smashing.length);
-  }
-  if (els.mobilePassCount) {
-    els.mobilePassCount.textContent = String(state.passing.length);
-  }
+  });
 };
 
 const chooseFlavorText = (entries) => {
@@ -562,7 +572,7 @@ const getSpriteScale = (pokemon) => {
   return Math.min(1.02, Math.max(0.62, scaled));
 };
 
-const renderTypes = (types) => {
+const renderTypes = (types, canMega = false) => {
   els.types.innerHTML = "";
   types.forEach((type) => {
     const badge = document.createElement("span");
@@ -571,6 +581,16 @@ const renderTypes = (types) => {
     badge.style.background = typeColors[type.type.name] || "#f0f0f0";
     els.types.appendChild(badge);
   });
+
+  if (canMega) {
+    const megaBadge = document.createElement("span");
+    megaBadge.className = "type type-mega";
+    megaBadge.setAttribute("aria-label", "Can Mega Evolve");
+    megaBadge.title = "Can Mega Evolve";
+    megaBadge.innerHTML =
+      '<span class="mega-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M10 1.8L13.2 4l4-.5-.5 4L18.2 10l-1.5 2.5.5 4-4-.5L10 18.2 6.8 16l-4 .5.5-4L1.8 10l1.5-2.5-.5-4 4 .5L10 1.8zm-.1 4.4L7.2 10h2.1L8.2 14l4.6-4.8h-2.1l1.2-3z"/></svg></span>';
+    els.types.appendChild(megaBadge);
+  }
 };
 
 const setMainImage = (url) => {
@@ -613,7 +633,7 @@ const setCardData = (pokemon) => {
   }
   els.bio.textContent = pokemon.bio;
   els.stats.innerHTML = `${formatVitals(pokemon)}${formatStats(pokemon.stats)}`;
-  renderTypes(pokemon.types);
+  renderTypes(pokemon.types, pokemon.canMegaEvolve);
   const primaryType = pokemon.types[0]?.type?.name;
   const accent = typeColors[primaryType] || "#ff6b2d";
   document.documentElement.style.setProperty("--type-accent", accent);
@@ -704,6 +724,7 @@ const loadPokemon = async (name) => {
     name: capitalize(details.name),
     height: details.height,
     weight: details.weight,
+    canMegaEvolve: MEGA_EVOLUTION_SPECIES.has(details.species?.name || details.name),
     types: details.types,
     stats: details.stats,
     bio: chooseFlavorText(species.flavor_text_entries),
@@ -1217,9 +1238,8 @@ const registerAction = (type) => {
   }
 
   updateCounts();
-  renderHistory(state.smashing, els.smashList);
-  renderHistory(state.passing, els.passList);
-  renderMobileRecap();
+  renderHistory(state.smashing, [els.smashList, els.mobileHubSmashList]);
+  renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
   renderBadges();
   updateUndoLabel();
   saveHistory();
@@ -1266,9 +1286,8 @@ const undoLast = () => {
   state.current = last.pokemon;
   setCardData(state.current);
   updateCounts();
-  renderHistory(state.smashing, els.smashList);
-  renderHistory(state.passing, els.passList);
-  renderMobileRecap();
+  renderHistory(state.smashing, [els.smashList, els.mobileHubSmashList]);
+  renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
   renderBadges();
   updateUndoLabel();
   saveHistory();
@@ -1285,9 +1304,8 @@ const clearHistory = () => {
   state.smashTypeCounts = new Map();
   state.smashStatTotals = {};
   updateCounts();
-  renderHistory(state.smashing, els.smashList);
-  renderHistory(state.passing, els.passList);
-  renderMobileRecap();
+  renderHistory(state.smashing, [els.smashList, els.mobileHubSmashList]);
+  renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
   renderBadges();
   updateUndoLabel();
   saveHistory();
@@ -1523,8 +1541,8 @@ const setupEvents = () => {
     rebuildQueue();
   });
   els.keepHistory.addEventListener("change", () => {
-    renderHistory(state.smashing, els.smashList);
-    renderHistory(state.passing, els.passList);
+    renderHistory(state.smashing, [els.smashList, els.mobileHubSmashList]);
+    renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
     saveOptions();
   });
 
@@ -1667,9 +1685,8 @@ const init = async () => {
   updateMobileFilterBar();
   setupEvents();
   updateCounts();
-  renderHistory(state.smashing, els.smashList);
-  renderHistory(state.passing, els.passList);
-  renderMobileRecap();
+  renderHistory(state.smashing, [els.smashList, els.mobileHubSmashList]);
+  renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
   renderFavorites();
   renderBadges();
   updateUndoLabel();

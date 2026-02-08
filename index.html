@@ -53,6 +53,16 @@
       <button class="action undo" id="mobileUndoBtn">Undo</button>
       <button class="action shuffle" id="mobileShuffleBtn">Shuffle</button>
     </div>
+    <div class="mobile-hub-history" aria-label="Swipe history">
+      <div class="mobile-hub-history-lane">
+        <div class="mobile-hub-history-title">Smash list</div>
+        <div class="collection mobile-hub-history-list" id="mobileHubSmashList"></div>
+      </div>
+      <div class="mobile-hub-history-lane">
+        <div class="mobile-hub-history-title">Pass list</div>
+        <div class="collection mobile-hub-history-list" id="mobileHubPassList"></div>
+      </div>
+    </div>
     <div class="mobile-hub-favorites" aria-label="Saved Pokemon">
       <div class="mobile-hub-favorites-head">
         <span>Favorites</span>
@@ -112,24 +122,6 @@
             </div>
           </div>
           <div class="card-shadow"></div>
-        </div>
-
-        <div class="mobile-recap" id="mobileRecap" aria-label="Swipe recap">
-
-          <div class="mobile-recap-row mobile-recap-row-smash">
-            <div class="mobile-recap-chip">
-              <span class="mobile-recap-label">Smash</span>
-              <span class="mobile-recap-count" id="mobileSmashCount">0</span>
-            </div>
-            <div class="mobile-recap-list" id="mobileSmashRecap" aria-label="Recent smashed Pokemon"></div>
-          </div>
-          <div class="mobile-recap-row mobile-recap-row-pass">
-            <div class="mobile-recap-chip">
-              <span class="mobile-recap-label">Pass</span>
-              <span class="mobile-recap-count" id="mobilePassCount">0</span>
-            </div>
-            <div class="mobile-recap-list" id="mobilePassRecap" aria-label="Recent passed Pokemon"></div>
-          </div>
         </div>
 
         <div class="actions">
@@ -203,12 +195,12 @@
         </div>
       </div>
 
-      <div class="panel-block">
+      <div class="panel-block history-panel-block">
         <h2>Smash list</h2>
         <div class="collection" id="smashList"></div>
       </div>
 
-      <div class="panel-block">
+      <div class="panel-block history-panel-block">
         <h2>Pass list</h2>
         <div class="collection" id="passList"></div>
         <div class="panel-actions">
