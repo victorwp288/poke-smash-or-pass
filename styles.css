@@ -267,6 +267,10 @@ body {
   border-radius: 28px;
   box-shadow: var(--shadow);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   transform: translateY(10px);
   animation: floatIn 0.6s ease forwards;
   transition: transform 0.2s ease;
@@ -467,6 +471,20 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.card-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.card-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--type-accent) 45%, rgba(20, 19, 15, 0.3));
+  border-radius: 999px;
 }
 
 .title-row {
@@ -474,6 +492,16 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+  position: sticky;
+  top: -1px;
+  z-index: 2;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--card) 96%, white 4%),
+    color-mix(in srgb, var(--card) 86%, white 14%)
+  );
+  padding: 0 0 8px;
+  margin-bottom: 2px;
 }
 
 .card-actions {
@@ -612,6 +640,35 @@ h1 {
   display: none;
 }
 
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid rgba(20, 19, 15, 0.55);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #14130f;
+}
+
+.category-legendary {
+  background: linear-gradient(135deg, #ffe4a3, #ffd67d);
+}
+
+.category-mythical {
+  background: linear-gradient(135deg, #ffd8f0, #ffc2df);
+}
+
+.category-ultra-beast {
+  background: linear-gradient(135deg, #e3e6ff, #c9d0ff);
+}
+
+.category-paradox {
+  background: linear-gradient(135deg, #ffd6cb, #ffb9a5);
+}
+
 .type-mega {
   display: inline-flex;
   align-items: center;
@@ -645,8 +702,11 @@ h1 {
 .evolution {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-top: -2px;
+  gap: 6px;
+  margin-top: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .evolution[hidden] {
@@ -654,46 +714,62 @@ h1 {
 }
 
 .evo-title {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.72;
+  opacity: 0.75;
 }
 
 .evo-flow {
   display: flex;
   align-items: center;
-  gap: 7px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 2px 2px 0px;
-  scrollbar-width: thin;
+  flex-wrap: nowrap;
   justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 2px 1px 2px;
 }
 
 .evo-stage {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  flex-wrap: nowrap;
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .evo-stage.is-branch {
-  flex-wrap: wrap;
-  max-width: 260px;
+  align-items: center;
+}
+
+.evo-branch {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .evo-node {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   padding: 2px 7px 2px 4px;
   border-radius: 999px;
   border: 1.5px solid rgba(20, 19, 15, 0.45);
   background: rgba(255, 255, 255, 0.7);
-  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
 }
 
 .evo-node.is-current {
@@ -701,9 +777,75 @@ h1 {
   border-color: color-mix(in srgb, var(--type-accent) 60%, #14130f 40%);
 }
 
+.evo-gen-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1.5px solid rgba(20, 19, 15, 0.45);
+  background: rgba(255, 255, 255, 0.84);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+}
+
+.evo-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.evo-method {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 15, 0.3);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  padding: 2px 6px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.evo-method-stone {
+  gap: 4px;
+  padding: 2px 6px 2px 4px;
+}
+
+.evo-method-stone-icon {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.evo-method-stone-icon.is-missing {
+  display: none;
+}
+
+.evo-method-stone-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.evo-method-stone-extra {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .evo-sprite {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   flex: 0 0 auto;
 }
@@ -713,35 +855,50 @@ h1 {
 }
 
 .evo-name {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .evo-arrow {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
   font-size: 13px;
   font-weight: 900;
   line-height: 1;
   opacity: 0.7;
   flex: 0 0 auto;
-  transform: translateY(-1px);
 }
 
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 14px;
-  margin-top: 8px;
+  margin-top: 0;
   opacity: 0;
-  max-height: 0;
+  height: 0;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transform: translateY(-4px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
 }
 
 .card.show-stats .stats {
   opacity: 1;
-  max-height: 260px;
+  height: auto;
+  overflow: visible;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  margin-top: 8px;
 }
 
 .stat {
@@ -757,8 +914,94 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 12px;
-  margin-bottom: 4px;
-  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.abilities-block {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 2px;
+}
+
+.abilities-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.74;
+}
+
+.abilities-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ability-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(20, 19, 15, 0.35);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ability-chip:hover {
+  border-color: rgba(20, 19, 15, 0.55);
+}
+
+.ability-chip.is-active {
+  background: color-mix(in srgb, var(--type-accent) 22%, white 78%);
+  border-color: color-mix(in srgb, var(--type-accent) 64%, #14130f 36%);
+}
+
+.ability-chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--type-accent) 78%, #14130f 22%);
+  outline-offset: 2px;
+}
+
+.ability-panels {
+  display: grid;
+}
+
+.ability-panel {
+  border-radius: 10px;
+  border: 1.5px solid rgba(20, 19, 15, 0.28);
+  background: rgba(255, 255, 255, 0.64);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+
+.ability-panel[hidden] {
+  display: none;
+}
+
+.ability-hidden {
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 15, 0.28);
+  background: rgba(20, 19, 15, 0.08);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
 }
 
 .vital-item {
@@ -1235,6 +1478,15 @@ h1 {
     justify-content: center;
   }
 
+  .card-shell {
+    height: min(760px, calc(100svh - 242px));
+    max-height: 100%;
+  }
+
+  .card {
+    height: 100%;
+  }
+
   .panel {
     top: 0;
     height: 100%;
@@ -1635,10 +1887,17 @@ h1 {
 
   .card-shell {
     width: 100%;
+    height: auto;
+    max-height: none;
   }
 
   .card {
     height: auto;
+    max-height: none;
+  }
+
+  .card.show-stats {
+    height: min(730px, calc(100svh - 96px));
   }
 
   .favorite-fab,
@@ -1679,6 +1938,13 @@ h1 {
   .card-body {
     padding: 0px 14px 14px;
     gap: 12px;
+    overflow-y: visible;
+    scrollbar-gutter: stable;
+  }
+
+  .card.show-stats .card-body {
+    min-height: 0;
+    overflow-y: auto;
   }
 
   h1 {
@@ -1693,7 +1959,7 @@ h1 {
 
   .evolution {
     gap: 4px;
-    margin-top: -4px;
+    margin-top: -2px;
   }
 
   .evo-title {
@@ -1702,26 +1968,54 @@ h1 {
   }
 
   .evo-flow {
-    gap: 6px;
+    gap: 7px;
     padding-bottom: 2px;
+    align-items: start;
+    justify-content: start;
+    margin-top: 2rem;
   }
 
   .evo-stage {
-    gap: 4px;
+    gap: 5px;
+    min-width: 0;
   }
 
-  .evo-stage.is-branch {
-    max-width: 220px;
+  .evo-stage.is-branch .evo-branch {
+    align-items: center;
   }
 
   .evo-node {
-    gap: 3px;
+    gap: 4px;
     padding: 1px 6px 1px 3px;
   }
 
   .evo-sprite {
     width: 18px;
     height: 18px;
+  }
+
+  .evo-gen-badge {
+    font-size: 8px;
+    padding: 1px 6px;
+  }
+
+  .evo-methods {
+    gap: 3px;
+    max-width: 140px;
+  }
+
+  .evo-method {
+    font-size: 8px;
+    padding: 1px 5px;
+  }
+
+  .evo-method-stone {
+    padding: 1px 5px 1px 4px;
+  }
+
+  .evo-method-stone-icon {
+    width: 11px;
+    height: 11px;
   }
 
   .evo-name {
@@ -1731,6 +2025,8 @@ h1 {
 
   .evo-arrow {
     font-size: 11px;
+    align-self: flex-start;
+    padding-top: 7px;
   }
 
   .stats {
@@ -1747,6 +2043,39 @@ h1 {
     display: flex;
     justify-content: center;
     padding-bottom: 6px;
+  }
+
+  .abilities-block {
+    gap: 6px;
+  }
+
+  .abilities-title {
+    font-size: 9px;
+  }
+
+  .abilities-list {
+    gap: 5px;
+  }
+
+  .ability-chip {
+    font-size: 10px;
+    padding: 2px 7px;
+    gap: 4px;
+  }
+
+  .ability-hidden {
+    font-size: 8px;
+    padding: 1px 4px;
+  }
+
+  .ability-panel {
+    font-size: 10px;
+    padding: 7px 8px;
+  }
+
+  .category-chip {
+    font-size: 9px;
+    padding: 3px 8px;
   }
 
   .vital-item {

@@ -13,6 +13,8 @@ const SHUFFLE_SWIPE_MAX_HORIZONTAL_DRIFT = 72;
 const SHUFFLE_SWIPE_MIN_VELOCITY = 0.45;
 const SPRITE_CDN =
   "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+const ITEM_SPRITE_CDN =
+  "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items";
 const HEIGHT_ICON_URL = "icons/height.svg";
 const WEIGHT_ICON_URL = "icons/weight.svg";
 const MEGA_ICON_URL = "icons/megaevolution.webp";
@@ -104,6 +106,7 @@ const state = {
   cache: new Map(),
   typeIndex: new Map(),
   evolutionChainCache: new Map(),
+  abilityEffectCache: new Map(),
   smashing: [],
   passing: [],
   history: [],
@@ -181,6 +184,49 @@ const getTypeIconUrl = (type) => {
 };
 
 const TYPE_LIST = Object.keys(typeColors);
+const CATEGORY_LABELS = {
+  legendary: "Legendary",
+  mythical: "Mythical",
+  "ultra-beast": "Ultra Beast",
+  paradox: "Paradox",
+};
+const ULTRA_BEAST_SPECIES = new Set([
+  "nihilego",
+  "buzzwole",
+  "pheromosa",
+  "xurkitree",
+  "celesteela",
+  "kartana",
+  "guzzlord",
+  "poipole",
+  "naganadel",
+  "stakataka",
+  "blacephalon",
+]);
+const PARADOX_SPECIES = new Set([
+  "great-tusk",
+  "scream-tail",
+  "brute-bonnet",
+  "flutter-mane",
+  "slither-wing",
+  "sandy-shocks",
+  "roaring-moon",
+  "iron-treads",
+  "iron-bundle",
+  "iron-hands",
+  "iron-jugulis",
+  "iron-moth",
+  "iron-thorns",
+  "iron-valiant",
+  "walking-wake",
+  "iron-leaves",
+  "gouging-fire",
+  "raging-bolt",
+  "iron-boulder",
+  "iron-crown",
+  "koraidon",
+  "miraidon",
+]);
 const MEGA_EVOLUTION_SPECIES = new Set([
   "venusaur",
   "charizard",
@@ -236,6 +282,20 @@ const capitalize = (value) =>
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const normalizeInlineText = (value) =>
+  String(value ?? "")
+    .replace(/[\f\n\r]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const fetchJson = async (url) => {
   const response = await fetch(url);
@@ -607,6 +667,57 @@ const formatStats = (stats) => {
   return rows.join("");
 };
 
+const formatAbilities = (abilities) => {
+  if (!Array.isArray(abilities) || !abilities.length) {
+    return "";
+  }
+  const sorted = [...abilities].sort((a, b) => {
+    const hiddenOrder = Number(a.isHidden) - Number(b.isHidden);
+    if (hiddenOrder !== 0) return hiddenOrder;
+    return (a.slot || 99) - (b.slot || 99);
+  });
+
+  return `<div class="abilities-block">
+    <span class="abilities-title">Abilities</span>
+    <div class="abilities-list" role="tablist" aria-label="Pokemon abilities">
+      ${sorted
+        .map((ability, index) => {
+          const isActive = index === 0;
+          const tabId = `ability-tab-${index}`;
+          const panelId = `ability-panel-${index}`;
+          return `<button type="button" class="ability-chip${
+            isActive ? " is-active" : ""
+          }" data-ability-tab="${index}" role="tab" id="${tabId}" aria-selected="${isActive}" aria-controls="${panelId}">
+            <span class="ability-name">${escapeHtml(capitalize(
+              ability.name,
+            ))}</span>
+            ${
+              ability.isHidden
+                ? '<span class="ability-hidden">Hidden</span>'
+                : ""
+            }
+          </button>`;
+        })
+        .join("")}
+    </div>
+    <div class="ability-panels">
+      ${sorted
+        .map((ability, index) => {
+          const isActive = index === 0;
+          const tabId = `ability-tab-${index}`;
+          const panelId = `ability-panel-${index}`;
+          const description = normalizeInlineText(ability.description);
+          return `<div class="ability-panel${
+            isActive ? " is-active" : ""
+          }" id="${panelId}" data-ability-panel="${index}" role="tabpanel" aria-labelledby="${tabId}"${
+            isActive ? "" : " hidden"
+          }>${escapeHtml(description || "No description available yet.")}</div>`;
+        })
+        .join("")}
+    </div>
+  </div>`;
+};
+
 const formatVitals = (pokemon) => {
   const generation = getGenerationFromId(pokemon.id);
   const heightMeters = Number.isFinite(pokemon.height)
@@ -673,29 +784,165 @@ const getSpeciesSpriteUrl = (id) => {
   return `${SPRITE_CDN}/${id}.png`;
 };
 
+const getItemSpriteUrl = (itemName) => {
+  if (!itemName) return "";
+  return `${ITEM_SPRITE_CDN}/${itemName}.png`;
+};
+
+const getCategoryTags = (species) => {
+  const tags = [];
+  const name = species?.name || "";
+  if (species?.is_legendary) tags.push("legendary");
+  if (species?.is_mythical) tags.push("mythical");
+  if (ULTRA_BEAST_SPECIES.has(name)) tags.push("ultra-beast");
+  if (PARADOX_SPECIES.has(name)) tags.push("paradox");
+  return tags;
+};
+
+const getRelativePhysicalStatsLabel = (value) => {
+  if (value === 1) return "Atk > Def";
+  if (value === -1) return "Atk < Def";
+  if (value === 0) return "Atk = Def";
+  return "";
+};
+
+const parseStoneMethodLabel = (methodLabel) => {
+  if (typeof methodLabel !== "string") return null;
+  const match = methodLabel.match(/^Use\s+(.+?\sStone)(?:\s·\s(.+))?$/i);
+  if (!match) return null;
+  const stoneLabel = match[1].replace(/\s+/g, " ").trim();
+  const extraLabel = match[2] ? normalizeInlineText(match[2]) : "";
+  const itemName = stoneLabel
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!itemName) return null;
+  return {
+    label: stoneLabel,
+    sprite: getItemSpriteUrl(itemName),
+    extraLabel,
+  };
+};
+
+const formatEvolutionDetail = (detail) => {
+  if (!detail || typeof detail !== "object") return "Special";
+  const trigger = detail.trigger?.name || "";
+  const parts = [];
+
+  if (trigger === "use-item" && detail.item?.name) {
+    parts.push(`Use ${capitalize(detail.item.name)}`);
+  } else if (trigger === "trade") {
+    if (detail.held_item?.name) {
+      parts.push(`Trade holding ${capitalize(detail.held_item.name)}`);
+    } else if (detail.trade_species?.name) {
+      parts.push(`Trade for ${capitalize(detail.trade_species.name)}`);
+    } else {
+      parts.push("Trade");
+    }
+  } else if (trigger === "shed") {
+    parts.push("Shed");
+  } else if (trigger === "level-up") {
+    if (detail.min_level) {
+      parts.push(`Lvl ${detail.min_level}`);
+    } else {
+      parts.push("Level up");
+    }
+  } else if (trigger) {
+    parts.push(capitalize(trigger));
+  }
+
+  if (detail.item?.name && trigger !== "use-item") {
+    parts.push(`Use ${capitalize(detail.item.name)}`);
+  }
+  if (detail.min_happiness || detail.min_friendship) {
+    parts.push("High friendship");
+  }
+  if (detail.min_affection) parts.push("High affection");
+  if (detail.min_beauty) parts.push("High beauty");
+  if (detail.time_of_day === "day") parts.push("Day");
+  if (detail.time_of_day === "night") parts.push("Night");
+  if (detail.gender === 1) parts.push("Female");
+  if (detail.gender === 2) parts.push("Male");
+  if (detail.known_move?.name) {
+    parts.push(`Know ${capitalize(detail.known_move.name)}`);
+  }
+  if (detail.known_move_type?.name) {
+    parts.push(`${capitalize(detail.known_move_type.name)} move`);
+  }
+  if (detail.location?.name) {
+    parts.push(`At ${capitalize(detail.location.name)}`);
+  }
+  if (detail.party_species?.name) {
+    parts.push(`With ${capitalize(detail.party_species.name)}`);
+  }
+  if (detail.party_type?.name) {
+    parts.push(`${capitalize(detail.party_type.name)} in party`);
+  }
+  if (detail.needs_overworld_rain) parts.push("Rain");
+  if (typeof detail.relative_physical_stats === "number") {
+    const comparisonLabel = getRelativePhysicalStatsLabel(
+      detail.relative_physical_stats,
+    );
+    if (comparisonLabel) parts.push(comparisonLabel);
+  }
+  if (detail.turn_upside_down) parts.push("Upside down");
+
+  const unique = Array.from(new Set(parts.filter(Boolean)));
+  return unique.length ? unique.join(" · ") : "Special";
+};
+
+const getEvolutionMethodLabels = (details) => {
+  if (!Array.isArray(details) || !details.length) return [];
+  const labels = details.map((detail) => formatEvolutionDetail(detail));
+  return Array.from(new Set(labels.filter(Boolean)));
+};
+
 const buildEvolutionStages = (root) => {
   if (!root) return [];
   const stageMaps = [];
 
-  const visitNode = (node, depth) => {
+  const visitNode = (node, depth, parent = null) => {
     if (!node?.species?.name) return;
     if (!stageMaps[depth]) {
       stageMaps[depth] = new Map();
     }
 
     const speciesName = node.species.name;
+    const id = getSpeciesIdFromUrl(node.species.url);
+    const generation = getGenerationFromId(id);
+    const parentGeneration = parent?.generation ?? null;
+    const methodLabels = parent
+      ? getEvolutionMethodLabels(node.evolution_details)
+      : [];
+    const isLaterGenEvolution =
+      parentGeneration !== null &&
+      generation !== null &&
+      generation > parentGeneration;
+
     if (!stageMaps[depth].has(speciesName)) {
-      const id = getSpeciesIdFromUrl(node.species.url);
       stageMaps[depth].set(speciesName, {
         name: speciesName,
         label: capitalize(speciesName),
         id,
         sprite: getSpeciesSpriteUrl(id),
+        generation,
+        parentName: parent?.name || null,
+        parentGeneration,
+        isLaterGenEvolution,
+        methodLabels,
       });
+    } else {
+      const existing = stageMaps[depth].get(speciesName);
+      existing.methodLabels = Array.from(
+        new Set([...existing.methodLabels, ...methodLabels]),
+      );
+      existing.isLaterGenEvolution =
+        existing.isLaterGenEvolution || isLaterGenEvolution;
     }
 
+    const current = stageMaps[depth].get(speciesName);
     const evolvesTo = Array.isArray(node.evolves_to) ? node.evolves_to : [];
-    evolvesTo.forEach((next) => visitNode(next, depth + 1));
+    evolvesTo.forEach((next) => visitNode(next, depth + 1, current));
   };
 
   visitNode(root, 0);
@@ -728,10 +975,6 @@ const renderEvolutionLine = (stages, currentRawName) => {
     return;
   }
 
-  const title = document.createElement("div");
-  title.className = "evo-title";
-  title.textContent = "";
-
   const flow = document.createElement("div");
   flow.className = "evo-flow";
 
@@ -743,6 +986,9 @@ const renderEvolutionLine = (stages, currentRawName) => {
     }
 
     stage.forEach((entry) => {
+      const branch = document.createElement("div");
+      branch.className = "evo-branch";
+
       const node = document.createElement("span");
       node.className = "evo-node";
       if (entry.name === currentRawName) {
@@ -769,7 +1015,53 @@ const renderEvolutionLine = (stages, currentRawName) => {
 
       node.appendChild(sprite);
       node.appendChild(label);
-      stageEl.appendChild(node);
+      branch.appendChild(node);
+
+      if (entry.isLaterGenEvolution && entry.generation) {
+        const genBadge = document.createElement("span");
+        genBadge.className = "evo-gen-badge";
+        genBadge.textContent = `Gen ${entry.generation}`;
+        branch.appendChild(genBadge);
+      }
+
+      if (entry.methodLabels.length) {
+        const methods = document.createElement("div");
+        methods.className = "evo-methods";
+        entry.methodLabels.forEach((methodLabel) => {
+          const method = document.createElement("span");
+          method.className = "evo-method";
+          const stoneMethod = parseStoneMethodLabel(methodLabel);
+          if (stoneMethod) {
+            method.classList.add("evo-method-stone");
+            const stoneIcon = document.createElement("img");
+            stoneIcon.className = "evo-method-stone-icon";
+            stoneIcon.src = stoneMethod.sprite;
+            stoneIcon.alt = `${stoneMethod.label} icon`;
+            stoneIcon.loading = "lazy";
+            stoneIcon.decoding = "async";
+            stoneIcon.addEventListener("error", () => {
+              stoneIcon.classList.add("is-missing");
+            });
+            const stoneName = document.createElement("span");
+            stoneName.className = "evo-method-stone-name";
+            stoneName.textContent = stoneMethod.label;
+            method.appendChild(stoneIcon);
+            method.appendChild(stoneName);
+            if (stoneMethod.extraLabel) {
+              const extraInfo = document.createElement("span");
+              extraInfo.className = "evo-method-stone-extra";
+              extraInfo.textContent = `· ${stoneMethod.extraLabel}`;
+              method.appendChild(extraInfo);
+            }
+          } else {
+            method.textContent = methodLabel;
+          }
+          methods.appendChild(method);
+        });
+        branch.appendChild(methods);
+      }
+
+      stageEl.appendChild(branch);
     });
 
     flow.appendChild(stageEl);
@@ -781,12 +1073,11 @@ const renderEvolutionLine = (stages, currentRawName) => {
     }
   });
 
-  els.evolutionLine.appendChild(title);
   els.evolutionLine.appendChild(flow);
   els.evolutionLine.hidden = false;
 };
 
-const renderTypes = (types, canMega = false) => {
+const renderTypes = (types, canMega = false, categoryTags = []) => {
   els.types.innerHTML = "";
   types.forEach((type) => {
     const typeName = type.type.name;
@@ -811,6 +1102,14 @@ const renderTypes = (types, canMega = false) => {
     label.textContent = typeName;
     badge.appendChild(label);
     els.types.appendChild(badge);
+  });
+
+  categoryTags.forEach((tag) => {
+    if (!CATEGORY_LABELS[tag]) return;
+    const chip = document.createElement("span");
+    chip.className = `category-chip category-${tag}`;
+    chip.textContent = CATEGORY_LABELS[tag];
+    els.types.appendChild(chip);
   });
 
   if (canMega) {
@@ -864,8 +1163,10 @@ const setCardData = (pokemon) => {
   }
   els.bio.textContent = pokemon.bio;
   renderEvolutionLine(pokemon.evolution, pokemon.rawName);
-  els.stats.innerHTML = `${formatVitals(pokemon)}${formatStats(pokemon.stats)}`;
-  renderTypes(pokemon.types, pokemon.canMegaEvolve);
+  els.stats.innerHTML = `${formatVitals(pokemon)}${formatAbilities(
+    pokemon.abilities,
+  )}${formatStats(pokemon.stats)}`;
+  renderTypes(pokemon.types, pokemon.canMegaEvolve, pokemon.categoryTags);
   const primaryType = pokemon.types[0]?.type?.name;
   const accent = typeColors[primaryType] || "#ff6b2d";
   document.documentElement.style.setProperty("--type-accent", accent);
@@ -915,6 +1216,47 @@ const normalizeSprites = (sprites) => {
   };
 };
 
+const getAbilityDescription = (abilityData) => {
+  const entries = Array.isArray(abilityData?.effect_entries)
+    ? abilityData.effect_entries
+    : [];
+  const englishShort = entries.find(
+    (entry) => entry.language?.name === "en" && entry.short_effect,
+  );
+  if (englishShort?.short_effect) {
+    return normalizeInlineText(englishShort.short_effect);
+  }
+  const english = entries.find(
+    (entry) => entry.language?.name === "en" && entry.effect,
+  );
+  if (english?.effect) {
+    return normalizeInlineText(english.effect);
+  }
+  return "";
+};
+
+const loadAbilityDescription = async (abilityRef) => {
+  const abilityName = abilityRef?.name || "";
+  const abilityUrl = abilityRef?.url || "";
+  const cacheKey = abilityUrl || abilityName;
+  if (!cacheKey) return "";
+  if (state.abilityEffectCache.has(cacheKey)) {
+    return state.abilityEffectCache.get(cacheKey);
+  }
+
+  try {
+    const payload = await fetchJson(abilityUrl || `${POKEAPI}/ability/${abilityName}`);
+    const description =
+      getAbilityDescription(payload) || "No description available yet.";
+    state.abilityEffectCache.set(cacheKey, description);
+    return description;
+  } catch {
+    const fallback = "No description available yet.";
+    state.abilityEffectCache.set(cacheKey, fallback);
+    return fallback;
+  }
+};
+
 const loadTypeIndex = async (type) => {
   if (state.typeIndex.has(type)) {
     return state.typeIndex.get(type);
@@ -954,6 +1296,24 @@ const loadPokemon = async (name) => {
     fetchJson(`${POKEAPI}/pokemon-species/${name}`),
   ]);
   const evolution = await loadEvolutionLine(species.evolution_chain?.url);
+  const abilities = (
+    await Promise.all(
+      details.abilities.map(async (entry) => {
+        const abilityName = entry.ability?.name || "";
+        if (!abilityName) return null;
+        const description = await loadAbilityDescription({
+          name: abilityName,
+          url: entry.ability?.url || "",
+        });
+        return {
+          name: abilityName,
+          isHidden: Boolean(entry.is_hidden),
+          slot: Number(entry.slot) || 99,
+          description,
+        };
+      }),
+    )
+  ).filter(Boolean);
 
   const pokemon = {
     id: details.id,
@@ -961,6 +1321,8 @@ const loadPokemon = async (name) => {
     name: capitalize(details.name),
     height: details.height,
     weight: details.weight,
+    abilities,
+    categoryTags: getCategoryTags(species),
     cry: details.cries?.latest || details.cries?.legacy || "",
     canMegaEvolve: MEGA_EVOLUTION_SPECIES.has(
       details.species?.name || details.name,
@@ -1827,6 +2189,31 @@ const handleImagePointerUp = (event) => {
   event.stopPropagation();
 };
 
+const handleAbilityTabClick = (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const tab = target.closest(".ability-chip[data-ability-tab]");
+  if (!tab || !els.stats.contains(tab)) return;
+
+  const block = tab.closest(".abilities-block");
+  if (!block) return;
+  const nextIndex = tab.dataset.abilityTab;
+
+  const tabs = block.querySelectorAll(".ability-chip[data-ability-tab]");
+  tabs.forEach((item) => {
+    const isActive = item.dataset.abilityTab === nextIndex;
+    item.classList.toggle("is-active", isActive);
+    item.setAttribute("aria-selected", String(isActive));
+  });
+
+  const panels = block.querySelectorAll(".ability-panel[data-ability-panel]");
+  panels.forEach((panel) => {
+    const isActive = panel.dataset.abilityPanel === nextIndex;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
+};
+
 const setupEvents = () => {
   els.passBtn.addEventListener("click", () => swipe("pass"));
   els.smashBtn.addEventListener("click", () => swipe("smash"));
@@ -1920,6 +2307,7 @@ const setupEvents = () => {
     renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
     saveOptions();
   });
+  els.stats.addEventListener("click", handleAbilityTabClick);
 
   els.card.addEventListener("pointerdown", handlePointerDown);
   els.card.addEventListener("pointermove", handlePointerMove);
