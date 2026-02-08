@@ -54,6 +54,9 @@ const els = {
   mobileHubHelp: document.getElementById("mobileHubHelp"),
   mobileHubFilters: document.getElementById("mobileHubFilters"),
   mobileHubClose: document.getElementById("mobileHubClose"),
+  mobileRecap: document.getElementById("mobileRecap"),
+  mobileSmashRecap: document.getElementById("mobileSmashRecap"),
+  mobilePassRecap: document.getElementById("mobilePassRecap"),
   summaryModal: document.getElementById("summaryModal"),
   summaryContent: document.getElementById("summaryContent"),
   summaryClose: document.getElementById("summaryClose"),
@@ -456,6 +459,40 @@ const renderHistory = (items, container) => {
   });
 };
 
+const renderMobileRecap = () => {
+  if (!els.mobileSmashRecap || !els.mobilePassRecap) return;
+
+  const renderLane = (entries, container) => {
+    container.innerHTML = "";
+    const recent = entries.slice(-8).reverse();
+    if (!recent.length) {
+      const empty = document.createElement("span");
+      empty.className = "mobile-recap-empty";
+      empty.textContent = "None";
+      container.appendChild(empty);
+      return;
+    }
+
+    recent.forEach((entry) => {
+      const item = document.createElement("span");
+      item.className = "mobile-recap-item";
+      item.title = entry.name;
+      if (entry.thumb) {
+        const img = document.createElement("img");
+        img.src = entry.thumb;
+        img.alt = entry.name;
+        item.appendChild(img);
+      } else {
+        item.textContent = entry.name.charAt(0).toUpperCase();
+      }
+      container.appendChild(item);
+    });
+  };
+
+  renderLane(state.smashing, els.mobileSmashRecap);
+  renderLane(state.passing, els.mobilePassRecap);
+};
+
 const chooseFlavorText = (entries) => {
   const english = entries.filter((entry) => entry.language.name === "en");
   const unique = Array.from(
@@ -502,6 +539,12 @@ const getGenerationFromId = (id) => {
   if (id >= 810 && id <= 905) return 8;
   if (id >= 906 && id <= 1025) return 9;
   return null;
+};
+
+const getSpriteScale = (pokemon) => {
+  const height = Math.max(1, Number(pokemon?.height) || 10);
+  const scaled = 1.12 - Math.log10(height) * 0.28;
+  return Math.min(1.02, Math.max(0.62, scaled));
 };
 
 const renderTypes = (types) => {
@@ -564,6 +607,8 @@ const setCardData = (pokemon) => {
   const baseImage = shiny ? pokemon.images.shiny : pokemon.images.main;
   setMainImage(baseImage);
   els.mainImage.alt = pokemon.name;
+  const spriteScale = getSpriteScale(pokemon);
+  els.mainImage.style.setProperty("--sprite-scale", String(spriteScale));
 
   const gallery = pokemon.images.gallery.includes(baseImage)
     ? pokemon.images.gallery
@@ -691,7 +736,13 @@ const updateUndoLabel = () => {
 const updateFavoriteButton = () => {
   if (!state.current) return;
   const exists = state.favorites.some((fav) => fav.name === state.current.name);
-  els.favoriteBtn.textContent = exists ? "Saved" : "Save";
+  if (!els.favoriteBtn) return;
+  els.favoriteBtn.classList.toggle("is-saved", exists);
+  els.favoriteBtn.setAttribute("aria-pressed", String(exists));
+  els.favoriteBtn.setAttribute(
+    "aria-label",
+    exists ? "Remove from saved Pokemon" : "Save Pokemon"
+  );
 };
 
 const setPanelOpen = (open) => {
@@ -1041,6 +1092,7 @@ const loadNext = async () => {
     els.name.textContent = "No Pokemon";
     els.bio.textContent = "Choose more generations to keep swiping.";
     els.mainImage.removeAttribute("src");
+    els.mainImage.style.removeProperty("--sprite-scale");
     els.types.innerHTML = "";
     els.stats.innerHTML = "";
     els.thumbs.innerHTML = "";
@@ -1135,6 +1187,7 @@ const registerAction = (type) => {
   updateCounts();
   renderHistory(state.smashing, els.smashList);
   renderHistory(state.passing, els.passList);
+  renderMobileRecap();
   renderBadges();
   updateUndoLabel();
   saveHistory();
@@ -1183,6 +1236,7 @@ const undoLast = () => {
   updateCounts();
   renderHistory(state.smashing, els.smashList);
   renderHistory(state.passing, els.passList);
+  renderMobileRecap();
   renderBadges();
   updateUndoLabel();
   saveHistory();
@@ -1201,6 +1255,7 @@ const clearHistory = () => {
   updateCounts();
   renderHistory(state.smashing, els.smashList);
   renderHistory(state.passing, els.passList);
+  renderMobileRecap();
   renderBadges();
   updateUndoLabel();
   saveHistory();
@@ -1554,6 +1609,7 @@ const init = async () => {
   updateCounts();
   renderHistory(state.smashing, els.smashList);
   renderHistory(state.passing, els.passList);
+  renderMobileRecap();
   renderFavorites();
   renderBadges();
   updateUndoLabel();
