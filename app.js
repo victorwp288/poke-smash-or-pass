@@ -869,7 +869,7 @@ const updateCryButton = () => {
   const hasCry = Boolean(state.current?.cry);
   els.cryBtn.disabled = !hasCry;
   els.cryBtn.classList.toggle("is-disabled", !hasCry);
-  els.cryBtn.textContent = hasCry ? "Play cry" : "No cry";
+  els.cryBtn.title = hasCry ? "Play cry" : "No cry available";
   els.cryBtn.setAttribute(
     "aria-label",
     hasCry ? "Play Pokemon cry" : "No cry available for this Pokemon",
