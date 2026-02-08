@@ -9,6 +9,7 @@ const DAILY_SIZE = 20;
 const PRELOAD_COUNT = 2;
 
 const els = {
+  cardShell: document.getElementById("cardShell"),
   card: document.getElementById("card"),
   mainImage: document.getElementById("mainImage"),
   thumbs: document.getElementById("thumbs"),
@@ -42,6 +43,17 @@ const els = {
   exportCsv: document.getElementById("exportCsv"),
   shareCard: document.getElementById("shareCard"),
   helpBtn: document.getElementById("helpBtn"),
+  mobileHubToggle: document.getElementById("mobileHubToggle"),
+  mobileHub: document.getElementById("mobileHub"),
+  mobileQueueStatus: document.getElementById("mobileQueueStatus"),
+  mobileScoreStatus: document.getElementById("mobileScoreStatus"),
+  mobilePassBtn: document.getElementById("mobilePassBtn"),
+  mobileSmashBtn: document.getElementById("mobileSmashBtn"),
+  mobileUndoBtn: document.getElementById("mobileUndoBtn"),
+  mobileShuffleBtn: document.getElementById("mobileShuffleBtn"),
+  mobileHubHelp: document.getElementById("mobileHubHelp"),
+  mobileHubFilters: document.getElementById("mobileHubFilters"),
+  mobileHubClose: document.getElementById("mobileHubClose"),
   summaryModal: document.getElementById("summaryModal"),
   summaryContent: document.getElementById("summaryContent"),
   summaryClose: document.getElementById("summaryClose"),
@@ -50,6 +62,14 @@ const els = {
   queueStatus: document.getElementById("queueStatus"),
   smashCount: document.getElementById("smashCount"),
   passCount: document.getElementById("passCount"),
+  genLabel: document.getElementById("pokeGen"),
+  panel: document.getElementById("filterPanel"),
+  panelOverlay: document.getElementById("panelOverlay"),
+  panelClose: document.getElementById("panelClose"),
+  mobileDaily: document.getElementById("mobileDaily"),
+  mobileShiny: document.getElementById("mobileShiny"),
+  mobileFilters: document.getElementById("mobileFilters"),
+  filterCounts: document.getElementById("filterCounts"),
 };
 
 const state = {
@@ -74,7 +94,18 @@ const state = {
   smashStatTotals: {},
   isDragging: false,
   dragStart: 0,
+  dragStartY: 0,
+  dragStartTime: 0,
+  dragPointerId: null,
   dragX: 0,
+  dragCandidate: false,
+  suppressImageClick: false,
+  imageSwipeStartX: 0,
+  imageSwipeStartY: 0,
+  imageSwipePointerId: null,
+  imageSwipeActive: false,
+  isShuffling: false,
+  mobileHubOpen: false,
 };
 
 const typeColors = {
@@ -96,6 +127,33 @@ const typeColors = {
   dark: "#a5a0a0",
   steel: "#cad7df",
   fairy: "#ffb3d6",
+};
+
+const typeIconFiles = {
+  normal: "Normal_icon_PE.png",
+  fire: "Fire_icon_PE.png",
+  water: "Water_icon_PE.png",
+  electric: "Electric_icon_PE.png",
+  grass: "Grass_icon_PE.png",
+  ice: "Ice_icon_PE.png",
+  fighting: "Fighting_icon_PE.png",
+  poison: "Poison_icon_PE.png",
+  ground: "Ground_icon_PE.png",
+  flying: "Flying_icon_PE.png",
+  psychic: "Psychic_icon_PE.png",
+  bug: "Bug_icon_PE.png",
+  rock: "Rock_icon_PE.png",
+  ghost: "Ghost_icon_PE.png",
+  dragon: "Dragon_icon_PE.png",
+  dark: "Dark_icon_PE.png",
+  steel: "Steel_icon_PE.png",
+  fairy: "Fairy_icon_PE.png",
+};
+
+const getTypeIconUrl = (type) => {
+  const file = typeIconFiles[type];
+  if (!file) return "";
+  return `https://archives.bulbagarden.net/wiki/Special:FilePath/${encodeURIComponent(file)}`;
 };
 
 const TYPE_LIST = Object.keys(typeColors);
@@ -308,12 +366,14 @@ const buildGenFilters = () => {
         state.selectedGens.delete(i);
       }
       saveFilters();
+      updateMobileFilterBar();
       rebuildQueue();
     });
     label.appendChild(checkbox);
     label.append(`Gen ${i}`);
     els.genGrid.appendChild(label);
   }
+  updateMobileFilterBar();
 };
 
 const buildTypeFilters = () => {
@@ -333,19 +393,46 @@ const buildTypeFilters = () => {
         state.selectedTypes.delete(type);
       }
       saveFilters();
+      updateMobileFilterBar();
       rebuildQueue();
     });
     label.appendChild(checkbox);
-    label.append(type);
+    const iconWrap = document.createElement("span");
+    iconWrap.className = "type-option-icon";
+    const icon = document.createElement("img");
+    icon.className = "type-option-icon-img";
+    icon.src = getTypeIconUrl(type);
+    icon.alt = `${capitalize(type)} type icon`;
+    icon.loading = "lazy";
+    icon.decoding = "async";
+    icon.addEventListener("error", () => {
+      iconWrap.classList.add("is-missing");
+      icon.remove();
+    });
+    iconWrap.appendChild(icon);
+    label.appendChild(iconWrap);
+
+    const text = document.createElement("span");
+    text.className = "type-option-label";
+    text.textContent = capitalize(type);
+    label.appendChild(text);
     els.typeGrid.appendChild(label);
   });
+  updateMobileFilterBar();
 };
 
 const updateCounts = () => {
   els.smashCount.textContent = String(state.smashCount);
   els.passCount.textContent = String(state.passCount);
   const label = els.dailyDeck.checked ? "Daily deck" : "Deck";
-  els.queueStatus.textContent = `${label}: ${state.queue.length} left`;
+  const queueText = `${label}: ${state.queue.length} left`;
+  els.queueStatus.textContent = queueText;
+  if (els.mobileQueueStatus) {
+    els.mobileQueueStatus.textContent = queueText;
+  }
+  if (els.mobileScoreStatus) {
+    els.mobileScoreStatus.textContent = `Smash ${state.smashCount} - Pass ${state.passCount}`;
+  }
 };
 
 const renderHistory = (items, container) => {
@@ -384,6 +471,37 @@ const formatStats = (stats) => {
   );
   rows.push(`<div class="stat stat-total"><span>Total</span><span>${total}</span></div>`);
   return rows.join("");
+};
+
+const formatVitals = (pokemon) => {
+  const generation = getGenerationFromId(pokemon.id);
+  const heightMeters = Number.isFinite(pokemon.height) ? (pokemon.height / 10).toFixed(1) : "?";
+  const weightKg = Number.isFinite(pokemon.weight) ? (pokemon.weight / 10).toFixed(1) : "?";
+  const vitals = [
+    { label: "Generation", value: generation ? `Gen ${generation}` : "Unknown" },
+    { label: "Height", value: `${heightMeters} m` },
+    { label: "Weight", value: `${weightKg} kg` },
+  ];
+
+  return `<div class="stat-vitals">${vitals
+    .map(
+      (item) =>
+        `<div class="vital-chip"><span class="vital-key">${item.label}</span><span class="vital-value">${item.value}</span></div>`
+    )
+    .join("")}</div>`;
+};
+
+const getGenerationFromId = (id) => {
+  if (id >= 1 && id <= 151) return 1;
+  if (id >= 152 && id <= 251) return 2;
+  if (id >= 252 && id <= 386) return 3;
+  if (id >= 387 && id <= 493) return 4;
+  if (id >= 494 && id <= 649) return 5;
+  if (id >= 650 && id <= 721) return 6;
+  if (id >= 722 && id <= 809) return 7;
+  if (id >= 810 && id <= 905) return 8;
+  if (id >= 906 && id <= 1025) return 9;
+  return null;
 };
 
 const renderTypes = (types) => {
@@ -431,8 +549,12 @@ const buildThumbnails = (urls, activeUrl) => {
 const setCardData = (pokemon) => {
   els.name.textContent = pokemon.name;
   els.id.textContent = `#${String(pokemon.id).padStart(4, "0")}`;
+  if (els.genLabel) {
+    const gen = getGenerationFromId(pokemon.id);
+    els.genLabel.textContent = gen ? `Gen ${gen}` : "Gen ?";
+  }
   els.bio.textContent = pokemon.bio;
-  els.stats.innerHTML = formatStats(pokemon.stats);
+  els.stats.innerHTML = `${formatVitals(pokemon)}${formatStats(pokemon.stats)}`;
   renderTypes(pokemon.types);
   const primaryType = pokemon.types[0]?.type?.name;
   const accent = typeColors[primaryType] || "#ff6b2d";
@@ -520,6 +642,8 @@ const loadPokemon = async (name) => {
     id: details.id,
     rawName: details.name,
     name: capitalize(details.name),
+    height: details.height,
+    weight: details.weight,
     types: details.types,
     stats: details.stats,
     bio: chooseFlavorText(species.flavor_text_entries),
@@ -557,13 +681,61 @@ const prefetchUpcoming = () => {
 
 const updateUndoLabel = () => {
   const count = state.history.length;
-  els.undoBtn.textContent = count ? `Undo (${count})` : "Undo";
+  const label = count ? `Undo (${count})` : "Undo";
+  els.undoBtn.textContent = label;
+  if (els.mobileUndoBtn) {
+    els.mobileUndoBtn.textContent = label;
+  }
 };
 
 const updateFavoriteButton = () => {
   if (!state.current) return;
   const exists = state.favorites.some((fav) => fav.name === state.current.name);
   els.favoriteBtn.textContent = exists ? "Saved" : "Save";
+};
+
+const setPanelOpen = (open) => {
+  if (!els.panel) return;
+  if (open) {
+    setMobileHubOpen(false);
+  }
+  els.panel.classList.toggle("is-open", open);
+  document.body.classList.toggle("panel-open", open);
+  if (els.mobileFilters) {
+    els.mobileFilters.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (els.panelOverlay) {
+    els.panelOverlay.classList.toggle("is-open", open);
+    els.panelOverlay.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+};
+
+const updateMobileFilterBar = () => {
+  if (!els.filterCounts) return;
+  const genTotal = GEN_COUNT;
+  const typeTotal = TYPE_LIST.length;
+  const genCount = state.selectedGens.size;
+  const typeCount = state.selectedTypes.size;
+  els.filterCounts.textContent = `${genCount}/${genTotal} gens · ${typeCount}/${typeTotal} types`;
+
+  const syncToggle = (button, input) => {
+    if (!button || !input) return;
+    const active = input.checked;
+    button.classList.toggle("is-on", active);
+    button.setAttribute("aria-pressed", String(active));
+  };
+
+  syncToggle(els.mobileDaily, els.dailyDeck);
+  syncToggle(els.mobileShiny, els.shinyMode);
+};
+
+const setMobileHubOpen = (open) => {
+  if (!els.mobileHub || !els.mobileHubToggle) return;
+  state.mobileHubOpen = open;
+  els.mobileHub.classList.toggle("is-open", open);
+  els.mobileHub.setAttribute("aria-hidden", open ? "false" : "true");
+  els.mobileHubToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  document.body.classList.toggle("mobile-hub-open", open);
 };
 
 const renderFavorites = () => {
@@ -841,6 +1013,9 @@ const primeQueue = async () => {
   }
 
   els.queueStatus.textContent = "Fetching roster...";
+  if (els.mobileQueueStatus) {
+    els.mobileQueueStatus.textContent = "Fetching roster...";
+  }
 
   const gens = await Promise.all(
     genIds.map((id) => fetchJson(`${POKEAPI}/generation/${id}`))
@@ -860,6 +1035,9 @@ const primeQueue = async () => {
 const loadNext = async () => {
   if (state.queue.length === 0) {
     els.queueStatus.textContent = "Deck empty - pick more generations.";
+    if (els.mobileQueueStatus) {
+      els.mobileQueueStatus.textContent = "Deck empty - pick more generations.";
+    }
     els.name.textContent = "No Pokemon";
     els.bio.textContent = "Choose more generations to keep swiping.";
     els.mainImage.removeAttribute("src");
@@ -891,6 +1069,44 @@ const rebuildQueue = async () => {
   updateCounts();
   await primeQueue();
   await loadNext();
+};
+
+const shuffleDeck = async () => {
+  if (state.isShuffling) return;
+  state.isShuffling = true;
+  els.shuffleBtn.disabled = true;
+  els.shuffleBtn.textContent = "Shuffling...";
+  if (els.mobileShuffleBtn) {
+    els.mobileShuffleBtn.disabled = true;
+    els.mobileShuffleBtn.textContent = "Shuffling...";
+  }
+  els.card.style.transform = "";
+  els.card.classList.remove("dragging", "swipe-left", "swipe-right");
+  els.card.dataset.status = "";
+
+  if (els.cardShell) {
+    els.cardShell.classList.remove("is-shuffling");
+    void els.cardShell.offsetWidth;
+    els.cardShell.classList.add("is-shuffling");
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 520));
+
+  if (els.cardShell) {
+    els.cardShell.classList.remove("is-shuffling");
+  }
+
+  try {
+    await rebuildQueue();
+  } finally {
+    state.isShuffling = false;
+    els.shuffleBtn.disabled = false;
+    els.shuffleBtn.textContent = "Shuffle";
+    if (els.mobileShuffleBtn) {
+      els.mobileShuffleBtn.disabled = false;
+      els.mobileShuffleBtn.textContent = "Shuffle";
+    }
+  }
 };
 
 const registerAction = (type) => {
@@ -994,22 +1210,43 @@ const handlePointerDown = (event) => {
   if (event.target.closest("button, input, label") || event.target === els.mainImage) {
     return;
   }
-  state.isDragging = true;
+  state.isDragging = false;
+  state.dragCandidate = true;
   state.dragStart = event.clientX;
+  state.dragStartY = event.clientY;
+  state.dragStartTime = performance.now();
+  state.dragPointerId = event.pointerId;
+  state.dragX = 0;
+  state.suppressImageClick = false;
   els.card.classList.add("dragging");
-  els.card.setPointerCapture(event.pointerId);
 };
 
 const handlePointerMove = (event) => {
-  if (!state.isDragging) return;
-  const delta = event.clientX - state.dragStart;
-  state.dragX = delta;
-  const rotation = delta / 15;
-  els.card.style.transform = `translateX(${delta}px) rotate(${rotation}deg)`;
+  if (!state.dragCandidate) return;
+  const deltaX = event.clientX - state.dragStart;
+  const deltaY = event.clientY - state.dragStartY;
 
-  if (delta > 80) {
+  if (!state.isDragging) {
+    const horizontal = Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY);
+    const vertical = Math.abs(deltaY) > 12 && Math.abs(deltaY) > Math.abs(deltaX);
+    if (!horizontal && vertical) {
+      state.dragCandidate = false;
+      els.card.classList.remove("dragging");
+      return;
+    }
+    if (!horizontal) return;
+    state.isDragging = true;
+    els.card.setPointerCapture(event.pointerId);
+  }
+
+  state.dragX = deltaX;
+  state.suppressImageClick = true;
+  const rotation = deltaX / 15;
+  els.card.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+
+  if (deltaX > 80) {
     els.card.dataset.status = "smash";
-  } else if (delta < -80) {
+  } else if (deltaX < -80) {
     els.card.dataset.status = "pass";
   } else {
     els.card.dataset.status = "";
@@ -1017,27 +1254,89 @@ const handlePointerMove = (event) => {
 };
 
 const handlePointerUp = (event) => {
-  if (!state.isDragging) return;
+  if (!state.dragCandidate) return;
+  const deltaX = event.clientX - state.dragStart;
+  const elapsed = performance.now() - state.dragStartTime;
+  const velocity = deltaX / Math.max(elapsed, 1);
+  const shouldSwipeRight = deltaX > 120 || velocity > 0.6;
+  const shouldSwipeLeft = deltaX < -120 || velocity < -0.6;
+
   state.isDragging = false;
+  state.dragCandidate = false;
   els.card.classList.remove("dragging");
-  els.card.releasePointerCapture(event.pointerId);
+  if (state.dragPointerId !== null && els.card.hasPointerCapture(state.dragPointerId)) {
+    els.card.releasePointerCapture(state.dragPointerId);
+  }
   els.card.style.transform = "";
 
-  if (state.dragX > 120) {
+  if (shouldSwipeRight) {
     swipe("smash");
-  } else if (state.dragX < -120) {
+  } else if (shouldSwipeLeft) {
     swipe("pass");
   } else {
     els.card.dataset.status = "";
   }
   state.dragX = 0;
+  state.dragPointerId = null;
+};
+
+const cycleImage = (direction) => {
+  if (!state.current || !state.currentGallery.length) return;
+  const gallery = state.currentGallery;
+  const currentIndex = gallery.indexOf(state.currentImage);
+  if (currentIndex === -1) {
+    setMainImage(gallery[0]);
+    return;
+  }
+  const nextIndex =
+    direction === "prev"
+      ? (currentIndex - 1 + gallery.length) % gallery.length
+      : (currentIndex + 1) % gallery.length;
+  setMainImage(gallery[nextIndex]);
+};
+
+const handleImagePointerDown = (event) => {
+  state.imageSwipeStartX = event.clientX;
+  state.imageSwipeStartY = event.clientY;
+  state.imageSwipePointerId = event.pointerId;
+  state.imageSwipeActive = true;
+  state.suppressImageClick = false;
+  els.mainImage.setPointerCapture(event.pointerId);
+  event.stopPropagation();
+};
+
+const handleImagePointerMove = (event) => {
+  if (!state.imageSwipeActive) return;
+  const deltaX = event.clientX - state.imageSwipeStartX;
+  const deltaY = event.clientY - state.imageSwipeStartY;
+  if (Math.abs(deltaX) > 12 && Math.abs(deltaX) > Math.abs(deltaY)) {
+    state.suppressImageClick = true;
+  }
+};
+
+const handleImagePointerUp = (event) => {
+  if (!state.imageSwipeActive) return;
+  const deltaX = event.clientX - state.imageSwipeStartX;
+  const deltaY = event.clientY - state.imageSwipeStartY;
+  if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+    cycleImage(deltaX > 0 ? "prev" : "next");
+  }
+  state.imageSwipeActive = false;
+  if (
+    state.imageSwipePointerId !== null &&
+    els.mainImage.hasPointerCapture(state.imageSwipePointerId)
+  ) {
+    els.mainImage.releasePointerCapture(state.imageSwipePointerId);
+  }
+  state.imageSwipePointerId = null;
+  event.stopPropagation();
 };
 
 const setupEvents = () => {
   els.passBtn.addEventListener("click", () => swipe("pass"));
   els.smashBtn.addEventListener("click", () => swipe("smash"));
   els.undoBtn.addEventListener("click", undoLast);
-  els.shuffleBtn.addEventListener("click", rebuildQueue);
+  els.shuffleBtn.addEventListener("click", shuffleDeck);
   els.clearHistory.addEventListener("click", clearHistory);
   els.favoriteBtn.addEventListener("click", toggleFavorite);
   els.exportJson.addEventListener("click", () => exportFavorites("json"));
@@ -1065,24 +1364,28 @@ const setupEvents = () => {
     state.selectedGens = new Set(Array.from({ length: GEN_COUNT }, (_, i) => i + 1));
     buildGenFilters();
     saveFilters();
+    updateMobileFilterBar();
     rebuildQueue();
   });
   els.clearAll.addEventListener("click", () => {
     state.selectedGens.clear();
     buildGenFilters();
     saveFilters();
+    updateMobileFilterBar();
     rebuildQueue();
   });
   els.typeAll.addEventListener("click", () => {
     state.selectedTypes = new Set(TYPE_LIST);
     buildTypeFilters();
     saveFilters();
+    updateMobileFilterBar();
     rebuildQueue();
   });
   els.typeClear.addEventListener("click", () => {
     state.selectedTypes.clear();
     buildTypeFilters();
     saveFilters();
+    updateMobileFilterBar();
     rebuildQueue();
   });
   els.autoReveal.addEventListener("change", () => {
@@ -1090,15 +1393,18 @@ const setupEvents = () => {
     els.card.classList.toggle("show-stats", showStats);
     els.peekBtn.textContent = showStats ? "Hide stats" : "Peek stats";
     saveOptions();
+    updateMobileFilterBar();
   });
   els.shinyMode.addEventListener("change", () => {
     if (state.current) {
       setCardData(state.current);
     }
     saveOptions();
+    updateMobileFilterBar();
   });
   els.dailyDeck.addEventListener("change", () => {
     saveOptions();
+    updateMobileFilterBar();
     rebuildQueue();
   });
   els.keepHistory.addEventListener("change", () => {
@@ -1124,16 +1430,113 @@ const setupEvents = () => {
     if (event.key === "Escape") {
       toggleModal(els.helpModal, false);
       toggleModal(els.summaryModal, false);
+      setPanelOpen(false);
+      setMobileHubOpen(false);
     }
   });
 
-  els.mainImage.addEventListener("click", () => {
-    if (!state.current || !state.currentGallery.length) return;
-    const gallery = state.currentGallery;
-    const currentIndex = gallery.indexOf(state.currentImage);
-    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % gallery.length;
-    setMainImage(gallery[nextIndex]);
+  document.addEventListener("pointerdown", (event) => {
+    if (!state.mobileHubOpen || !els.mobileHub || !els.mobileHubToggle) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (els.mobileHub.contains(target) || els.mobileHubToggle.contains(target)) return;
+    setMobileHubOpen(false);
   });
+
+  els.mainImage.addEventListener("click", () => {
+    if (state.suppressImageClick) {
+      state.suppressImageClick = false;
+      return;
+    }
+    cycleImage("next");
+  });
+
+  els.mainImage.addEventListener("pointerdown", handleImagePointerDown);
+  els.mainImage.addEventListener("pointermove", handleImagePointerMove);
+  els.mainImage.addEventListener("pointerup", handleImagePointerUp);
+  els.mainImage.addEventListener("pointercancel", handleImagePointerUp);
+
+  if (els.mobileDaily) {
+    els.mobileDaily.addEventListener("click", () => {
+      els.dailyDeck.checked = !els.dailyDeck.checked;
+      els.dailyDeck.dispatchEvent(new Event("change"));
+    });
+  }
+
+  if (els.mobileShiny) {
+    els.mobileShiny.addEventListener("click", () => {
+      els.shinyMode.checked = !els.shinyMode.checked;
+      els.shinyMode.dispatchEvent(new Event("change"));
+    });
+  }
+
+  if (els.mobileFilters) {
+    els.mobileFilters.addEventListener("click", () => {
+      setPanelOpen(true);
+      setMobileHubOpen(false);
+    });
+  }
+
+  if (els.mobileHubToggle) {
+    els.mobileHubToggle.addEventListener("click", () => {
+      setPanelOpen(false);
+      setMobileHubOpen(!state.mobileHubOpen);
+    });
+  }
+
+  if (els.mobileHubClose) {
+    els.mobileHubClose.addEventListener("click", () => setMobileHubOpen(false));
+  }
+
+  if (els.mobilePassBtn) {
+    els.mobilePassBtn.addEventListener("click", () => {
+      swipe("pass");
+      setMobileHubOpen(false);
+    });
+  }
+
+  if (els.mobileSmashBtn) {
+    els.mobileSmashBtn.addEventListener("click", () => {
+      swipe("smash");
+      setMobileHubOpen(false);
+    });
+  }
+
+  if (els.mobileUndoBtn) {
+    els.mobileUndoBtn.addEventListener("click", () => {
+      undoLast();
+      setMobileHubOpen(false);
+    });
+  }
+
+  if (els.mobileShuffleBtn) {
+    els.mobileShuffleBtn.addEventListener("click", () => {
+      shuffleDeck();
+      setMobileHubOpen(false);
+    });
+  }
+
+  if (els.mobileHubHelp) {
+    els.mobileHubHelp.addEventListener("click", () => {
+      toggleModal(els.helpModal, true);
+      setMobileHubOpen(false);
+    });
+  }
+
+  if (els.mobileHubFilters) {
+    els.mobileHubFilters.addEventListener("click", () => {
+      setPanelOpen(true);
+      setMobileHubOpen(false);
+    });
+  }
+
+  if (els.panelClose) {
+    els.panelClose.addEventListener("click", () => setPanelOpen(false));
+  }
+
+  if (els.panelOverlay) {
+    els.panelOverlay.addEventListener("click", () => setPanelOpen(false));
+  }
 };
 
 const init = async () => {
@@ -1146,6 +1549,7 @@ const init = async () => {
   loadFavorites();
   buildGenFilters();
   buildTypeFilters();
+  updateMobileFilterBar();
   setupEvents();
   updateCounts();
   renderHistory(state.smashing, els.smashList);

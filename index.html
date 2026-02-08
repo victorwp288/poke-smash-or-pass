@@ -1,42 +1,83 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SmashDex — Swipe Pokemon</title>
-    <meta name="theme-color" content="#ff6b2d" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="icons/icon-180.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="bg-noise" aria-hidden="true"></div>
-    <div class="bg-blobs" aria-hidden="true"></div>
 
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark">SmashDex</span>
-        <span class="brand-sub">Tinder-style Pokemon picker</span>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmashDex — Swipe Pokemon</title>
+  <meta name="theme-color" content="#ff6b2d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="bg-noise" aria-hidden="true"></div>
+  <div class="bg-blobs" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">SmashDex</span>
+    </div>
+    <div class="status">
+      <div class="status-pill" id="queueStatus">Loading roster...</div>
+      <div class="score-pill">
+        Smash <span id="smashCount">0</span> - Pass <span id="passCount">0</span>
       </div>
-      <div class="status">
-        <div class="status-pill" id="queueStatus">Loading roster...</div>
-        <div class="score-pill">
-          Smash <span id="smashCount">0</span> - Pass <span id="passCount">0</span>
+      <button class="pill help-btn" id="helpBtn">?</button>
+    </div>
+    <button
+      class="pokeball-toggle"
+      id="mobileHubToggle"
+      aria-controls="mobileHub"
+      aria-expanded="false"
+      aria-label="Open controls"
+    >
+      <span class="pokeball-toggle-core" aria-hidden="true"></span>
+    </button>
+  </header>
+  <div class="mobile-hub" id="mobileHub" aria-hidden="true">
+    <div class="mobile-hub-head">
+      <div class="status-pill" id="mobileQueueStatus">Loading roster...</div>
+      <div class="score-pill" id="mobileScoreStatus">Smash 0 - Pass 0</div>
+    </div>
+    <div class="mobile-hub-actions">
+      <button class="action pass" id="mobilePassBtn">Pass</button>
+      <button class="action smash" id="mobileSmashBtn">Smash</button>
+      <button class="action undo" id="mobileUndoBtn">Undo</button>
+      <button class="action shuffle" id="mobileShuffleBtn">Shuffle</button>
+    </div>
+    <div class="mobile-hub-tools">
+      <button class="pill" id="mobileHubHelp">Help</button>
+      <button class="pill" id="mobileHubFilters">Filters</button>
+      <button class="pill" id="mobileHubClose">Close</button>
+    </div>
+  </div>
+
+  <main class="layout">
+    <section class="deck">
+      <div class="mobile-filterbar" id="mobileFilterBar" aria-label="Quick filters">
+        <div class="filter-summary">
+          <span class="filter-title">Quick filters</span>
+          <span class="filter-counts" id="filterCounts">0/9 gens · 0/18 types</span>
         </div>
-        <button class="pill help-btn" id="helpBtn">?</button>
+        <div class="filter-actions">
+          <button class="pill pill-mini" id="mobileDaily" aria-pressed="false">Daily deck</button>
+          <button class="pill pill-mini" id="mobileShiny" aria-pressed="false">Shiny mode</button>
+          <button class="pill pill-mini" id="mobileFilters" aria-controls="filterPanel" aria-expanded="false">
+            Filters
+          </button>
+        </div>
       </div>
-    </header>
 
-    <main class="layout">
-      <section class="deck">
-        <div class="card-shell">
+      <div class="deck-core">
+        <div class="card-shell" id="cardShell">
           <div class="card" id="card">
             <div class="stamp stamp-smash">SMASH</div>
             <div class="stamp stamp-pass">PASS</div>
@@ -49,7 +90,10 @@
               <div class="title-row">
                 <div>
                   <h1 id="pokeName">Loading...</h1>
-                  <div class="subtitle" id="pokeId">#0000</div>
+                  <div class="subtitle-row">
+                    <div class="subtitle" id="pokeId">#0000</div>
+                    <div class="gen-tag" id="pokeGen">Gen ?</div>
+                  </div>
                 </div>
                 <div class="card-actions">
                   <button class="pill" id="favoriteBtn">Save</button>
@@ -70,102 +114,111 @@
           <button class="action shuffle" id="shuffleBtn">Shuffle</button>
           <button class="action smash" id="smashBtn">Smash</button>
         </div>
-        <div class="hint">Tip: swipe with your trackpad or use left/right arrow keys.</div>
-      </section>
-
-      <aside class="panel">
-        <div class="panel-block">
-          <h2>Generation filters</h2>
-          <div class="gen-grid" id="genGrid"></div>
-          <div class="panel-actions">
-            <button class="ghost" id="selectAll">Select all</button>
-            <button class="ghost" id="clearAll">Clear</button>
-          </div>
+        <div class="hint">
+          <span class="hint-desktop">Tip: swipe with your trackpad or use left/right arrow keys.</span>
+          <span class="hint-mobile">Tip: swipe left or right on the card.</span>
         </div>
-
-        <div class="panel-block">
-          <h2>Type filters</h2>
-          <div class="type-grid" id="typeGrid"></div>
-          <div class="panel-actions">
-            <button class="ghost" id="typeAll">All types</button>
-            <button class="ghost" id="typeClear">Clear</button>
-          </div>
-        </div>
-
-        <div class="panel-block">
-          <h2>Deck options</h2>
-          <label class="toggle">
-            <input type="checkbox" id="autoReveal" checked />
-            <span>Auto-reveal stats</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="shinyMode" />
-            <span>Shiny mode</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="dailyDeck" />
-            <span>Daily deck (20)</span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" id="keepHistory" checked />
-            <span>Keep history</span>
-          </label>
-        </div>
-
-        <div class="panel-block">
-          <h2>Badges</h2>
-          <div class="collection wrap" id="badgeList"></div>
-        </div>
-
-        <div class="panel-block">
-          <h2>Favorites</h2>
-          <div class="collection wrap" id="favoriteList"></div>
-          <div class="panel-actions">
-            <button class="ghost" id="exportJson">Export JSON</button>
-            <button class="ghost" id="exportCsv">Export CSV</button>
-            <button class="ghost" id="shareCard">Share card</button>
-          </div>
-        </div>
-
-        <div class="panel-block">
-          <h2>Smash list</h2>
-          <div class="collection" id="smashList"></div>
-        </div>
-
-        <div class="panel-block">
-          <h2>Pass list</h2>
-          <div class="collection" id="passList"></div>
-          <div class="panel-actions">
-            <button class="ghost" id="clearHistory">Clear history</button>
-          </div>
-        </div>
-      </aside>
-    </main>
-
-    <footer class="footer">Data from PokeAPI - Swipe responsibly</footer>
-
-    <div class="modal" id="summaryModal" aria-hidden="true">
-      <div class="modal-card">
-        <h2>Swipe summary</h2>
-        <div class="modal-body" id="summaryContent"></div>
-        <button class="action shuffle" id="summaryClose">Keep swiping</button>
       </div>
-    </div>
+    </section>
 
-    <div class="modal" id="helpModal" aria-hidden="true">
-      <div class="modal-card">
-        <h2>Controls</h2>
-        <div class="modal-body">
-          <div class="help-row"><span>Swipe</span><span>Drag card left/right</span></div>
-          <div class="help-row"><span>Keys</span><span>← Pass · → Smash</span></div>
-          <div class="help-row"><span>Undo</span><span>Cmd/Ctrl + Z</span></div>
-          <div class="help-row"><span>Stats</span><span>Peek/Hide button</span></div>
-          <div class="help-row"><span>Help</span><span>Press “?”</span></div>
-        </div>
-        <button class="action shuffle" id="helpClose">Got it</button>
+    <aside class="panel" id="filterPanel">
+      <div class="panel-header">
+        <h2>Filters</h2>
+        <button class="pill panel-close" id="panelClose">Close</button>
       </div>
-    </div>
+      <div class="panel-block">
+        <h2>Generation filters</h2>
+        <div class="gen-grid" id="genGrid"></div>
+        <div class="panel-actions">
+          <button class="ghost" id="selectAll">Select all</button>
+          <button class="ghost" id="clearAll">Clear</button>
+        </div>
+      </div>
 
-    <script src="app.js"></script>
-  </body>
+      <div class="panel-block">
+        <h2>Type filters</h2>
+        <div class="type-grid" id="typeGrid"></div>
+        <div class="panel-actions">
+          <button class="ghost" id="typeAll">All types</button>
+          <button class="ghost" id="typeClear">Clear</button>
+        </div>
+      </div>
+
+      <div class="panel-block">
+        <h2>Deck options</h2>
+        <label class="toggle">
+          <input type="checkbox" id="autoReveal" checked />
+          <span>Auto-reveal stats</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="shinyMode" />
+          <span>Shiny mode</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="dailyDeck" />
+          <span>Daily deck (20)</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="keepHistory" checked />
+          <span>Keep history</span>
+        </label>
+      </div>
+
+      <div class="panel-block">
+        <h2>Badges</h2>
+        <div class="collection wrap" id="badgeList"></div>
+      </div>
+
+      <div class="panel-block">
+        <h2>Favorites</h2>
+        <div class="collection wrap" id="favoriteList"></div>
+        <div class="panel-actions">
+          <button class="ghost" id="exportJson">Export JSON</button>
+          <button class="ghost" id="exportCsv">Export CSV</button>
+          <button class="ghost" id="shareCard">Share card</button>
+        </div>
+      </div>
+
+      <div class="panel-block">
+        <h2>Smash list</h2>
+        <div class="collection" id="smashList"></div>
+      </div>
+
+      <div class="panel-block">
+        <h2>Pass list</h2>
+        <div class="collection" id="passList"></div>
+        <div class="panel-actions">
+          <button class="ghost" id="clearHistory">Clear history</button>
+        </div>
+      </div>
+    </aside>
+    <div class="panel-overlay" id="panelOverlay" aria-hidden="true"></div>
+  </main>
+
+
+  <div class="modal" id="summaryModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>Swipe summary</h2>
+      <div class="modal-body" id="summaryContent"></div>
+      <button class="action shuffle" id="summaryClose">Keep swiping</button>
+    </div>
+  </div>
+
+  <div class="modal" id="helpModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>Controls</h2>
+      <div class="modal-body">
+        <div class="help-row"><span>Swipe</span><span>Drag card left/right</span></div>
+        <div class="help-row"><span>Keys</span><span>← Pass · → Smash</span></div>
+        <div class="help-row"><span>Undo</span><span>Cmd/Ctrl + Z</span></div>
+        <div class="help-row"><span>Stats</span><span>Peek/Hide button</span></div>
+        <div class="help-row"><span>Help</span><span>Press “?”</span></div>
+      </div>
+      <button class="action shuffle" id="helpClose">Got it</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
 </html>
