@@ -1,4 +1,4 @@
-const CACHE_NAME = "smashdex-v2";
+const CACHE_NAME = "smashdex-v3";
 const ASSETS = [
   "./",
   "./index.html",

@@ -4,9 +4,12 @@ const STORAGE_KEY = "smashdex_history";
 const FILTER_KEY = "smashdex_filters";
 const OPTIONS_KEY = "smashdex_options";
 const FAV_KEY = "smashdex_favorites";
+const MODE_KEY = "smashdex_mode";
+const GUESS_STATS_KEY = "smashdex_guess_stats";
 const SUMMARY_INTERVAL = 20;
 const DAILY_SIZE = 20;
 const PRELOAD_COUNT = 2;
+const GUESS_MAX_ATTEMPTS = 6;
 const MOBILE_VIEW_QUERY = "(max-width: 980px)";
 const SHUFFLE_SWIPE_MIN_DISTANCE = 120;
 const SHUFFLE_SWIPE_MAX_HORIZONTAL_DRIFT = 72;
@@ -20,6 +23,12 @@ const WEIGHT_ICON_URL = "icons/weight.svg";
 const MEGA_ICON_URL = "icons/megaevolution.webp";
 
 const els = {
+  modeSmashBtn: document.getElementById("modeSmashBtn"),
+  modeGuessBtn: document.getElementById("modeGuessBtn"),
+  smashModePane: document.getElementById("smashModePane"),
+  guessModePane: document.getElementById("guessModePane"),
+  scoreLabelA: document.getElementById("scoreLabelA"),
+  scoreLabelB: document.getElementById("scoreLabelB"),
   cardShell: document.getElementById("cardShell"),
   card: document.getElementById("card"),
   mainImage: document.getElementById("mainImage"),
@@ -87,6 +96,9 @@ const els = {
   smashCount: document.getElementById("smashCount"),
   passCount: document.getElementById("passCount"),
   genLabel: document.getElementById("pokeGen"),
+  genFilterBlock: document.getElementById("genFilterBlock"),
+  typeFilterBlock: document.getElementById("typeFilterBlock"),
+  deckOptionsBlock: document.getElementById("deckOptionsBlock"),
   panel: document.getElementById("filterPanel"),
   panelOverlay: document.getElementById("panelOverlay"),
   panelClose: document.getElementById("panelClose"),
@@ -94,9 +106,24 @@ const els = {
   mobileShiny: document.getElementById("mobileShiny"),
   mobileFilters: document.getElementById("mobileFilters"),
   filterCounts: document.getElementById("filterCounts"),
+  guessTargetCard: document.getElementById("guessTargetCard"),
+  guessTargetImage: document.getElementById("guessTargetImage"),
+  guessTargetName: document.getElementById("guessTargetName"),
+  guessAttempts: document.getElementById("guessAttempts"),
+  guessTargetMeta: document.getElementById("guessTargetMeta"),
+  guessClues: document.getElementById("guessClues"),
+  guessGenGrid: document.getElementById("guessGenGrid"),
+  guessForm: document.getElementById("guessForm"),
+  guessInput: document.getElementById("guessInput"),
+  guessSubmitBtn: document.getElementById("guessSubmitBtn"),
+  guessNameList: document.getElementById("guessNameList"),
+  guessLive: document.getElementById("guessLive"),
+  guessNextBtn: document.getElementById("guessNextBtn"),
+  guessHistory: document.getElementById("guessHistory"),
 };
 
 const state = {
+  activeMode: "smash",
   selectedGens: new Set(Array.from({ length: GEN_COUNT }, (_, i) => i + 1)),
   selectedTypes: new Set(),
   queue: [],
@@ -107,6 +134,7 @@ const state = {
   typeIndex: new Map(),
   evolutionChainCache: new Map(),
   abilityEffectCache: new Map(),
+  genRosterCache: new Map(),
   smashing: [],
   passing: [],
   history: [],
@@ -133,6 +161,25 @@ const state = {
   cryAudio: null,
   isShuffling: false,
   mobileHubOpen: false,
+  lastGuessTarget: "",
+  guessRoundToken: 0,
+  guessRoster: [],
+  guessNameLookup: new Map(),
+  guess: {
+    targetName: "",
+    targetPokemon: null,
+    clues: [],
+    guesses: [],
+    attempts: 0,
+    status: "idle",
+    message: "",
+  },
+  guessStats: {
+    played: 0,
+    wins: 0,
+    streak: 0,
+    bestStreak: 0,
+  },
 };
 
 const typeColors = {
@@ -189,6 +236,7 @@ const CATEGORY_LABELS = {
   mythical: "Mythical",
   "ultra-beast": "Ultra Beast",
   paradox: "Paradox",
+  standard: "Standard",
 };
 const ULTRA_BEAST_SPECIES = new Set([
   "nihilego",
@@ -296,6 +344,27 @@ const normalizeInlineText = (value) =>
     .replace(/[\f\n\r]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+const normalizeGuessToken = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/♀/g, "f")
+    .replace(/♂/g, "m")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const humanizeTypeList = (types) => {
+  if (!Array.isArray(types) || !types.length) return "Unknown";
+  return types.map((type) => capitalize(type)).join(" / ");
+};
+
+const formatMeters = (decimeters) =>
+  Number.isFinite(decimeters) ? (decimeters / 10).toFixed(1) : "?";
+
+const formatKilograms = (hectograms) =>
+  Number.isFinite(hectograms) ? (hectograms / 10).toFixed(1) : "?";
 
 const fetchJson = async (url) => {
   const response = await fetch(url);
@@ -494,28 +563,79 @@ const loadFavorites = () => {
   }
 };
 
+const saveMode = () => {
+  try {
+    localStorage.setItem(MODE_KEY, state.activeMode);
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const loadMode = () => {
+  try {
+    const raw = localStorage.getItem(MODE_KEY);
+    if (raw === "guess" || raw === "smash") {
+      state.activeMode = raw;
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const saveGuessStats = () => {
+  try {
+    localStorage.setItem(GUESS_STATS_KEY, JSON.stringify(state.guessStats));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const loadGuessStats = () => {
+  try {
+    const raw = localStorage.getItem(GUESS_STATS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    state.guessStats.played = Math.max(0, Number(data.played) || 0);
+    state.guessStats.wins = Math.max(0, Number(data.wins) || 0);
+    state.guessStats.streak = Math.max(0, Number(data.streak) || 0);
+    state.guessStats.bestStreak = Math.max(0, Number(data.bestStreak) || 0);
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 const buildGenFilters = () => {
-  els.genGrid.innerHTML = "";
+  const containers = [els.genGrid, els.guessGenGrid].filter(Boolean);
+  containers.forEach((container) => {
+    container.innerHTML = "";
+  });
   for (let i = 1; i <= GEN_COUNT; i += 1) {
-    const label = document.createElement("label");
-    label.className = "gen-option";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.value = String(i);
-    checkbox.checked = state.selectedGens.has(i);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) {
-        state.selectedGens.add(i);
-      } else {
-        state.selectedGens.delete(i);
-      }
-      saveFilters();
-      updateMobileFilterBar();
-      rebuildQueue();
+    containers.forEach((container) => {
+      const label = document.createElement("label");
+      label.className = "gen-option";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = String(i);
+      checkbox.checked = state.selectedGens.has(i);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) {
+          state.selectedGens.add(i);
+        } else {
+          state.selectedGens.delete(i);
+        }
+        buildGenFilters();
+        saveFilters();
+        updateMobileFilterBar();
+        if (state.activeMode === "guess") {
+          startGuessRound();
+        } else {
+          rebuildQueue();
+        }
+      });
+      label.appendChild(checkbox);
+      label.append(`Gen ${i}`);
+      container.appendChild(label);
     });
-    label.appendChild(checkbox);
-    label.append(`Gen ${i}`);
-    els.genGrid.appendChild(label);
   }
   updateMobileFilterBar();
 };
@@ -538,7 +658,9 @@ const buildTypeFilters = () => {
       }
       saveFilters();
       updateMobileFilterBar();
-      rebuildQueue();
+      if (state.activeMode === "smash") {
+        rebuildQueue();
+      }
     });
     label.appendChild(checkbox);
     const iconWrap = document.createElement("span");
@@ -566,11 +688,46 @@ const buildTypeFilters = () => {
 };
 
 const updateCounts = () => {
+  if (state.activeMode === "guess") {
+    if (els.scoreLabelA) els.scoreLabelA.textContent = "Wins";
+    if (els.scoreLabelB) els.scoreLabelB.textContent = "Streak";
+    els.smashCount.textContent = String(state.guessStats.wins);
+    els.passCount.textContent = String(state.guessStats.streak);
+
+    let statusLabel = "GuessDex: Ready";
+    if (state.guess.status === "empty") {
+      statusLabel = "GuessDex: Select at least one generation.";
+    } else if (state.guess.status === "loading") {
+      statusLabel = "GuessDex: loading round...";
+    } else if (state.guess.status === "playing") {
+      statusLabel = `GuessDex: ${state.guess.attempts}/${GUESS_MAX_ATTEMPTS} guesses`;
+    } else if (state.guess.status === "won") {
+      statusLabel = `GuessDex: solved in ${state.guess.attempts}/${GUESS_MAX_ATTEMPTS}`;
+    } else if (state.guess.status === "lost") {
+      statusLabel = "GuessDex: out of guesses";
+    }
+
+    if (els.queueStatus) {
+      els.queueStatus.textContent = statusLabel;
+    }
+    if (els.mobileQueueStatus) {
+      els.mobileQueueStatus.textContent = statusLabel;
+    }
+    if (els.mobileScoreStatus) {
+      els.mobileScoreStatus.textContent = `Wins ${state.guessStats.wins} - Streak ${state.guessStats.streak}`;
+    }
+    return;
+  }
+
+  if (els.scoreLabelA) els.scoreLabelA.textContent = "Smash";
+  if (els.scoreLabelB) els.scoreLabelB.textContent = "Pass";
   els.smashCount.textContent = String(state.smashCount);
   els.passCount.textContent = String(state.passCount);
   const label = els.dailyDeck.checked ? "Daily deck" : "Deck";
   const queueText = `${label}: ${state.queue.length} left`;
-  els.queueStatus.textContent = queueText;
+  if (els.queueStatus) {
+    els.queueStatus.textContent = queueText;
+  }
   if (els.mobileQueueStatus) {
     els.mobileQueueStatus.textContent = queueText;
   }
@@ -797,6 +954,15 @@ const getCategoryTags = (species) => {
   if (ULTRA_BEAST_SPECIES.has(name)) tags.push("ultra-beast");
   if (PARADOX_SPECIES.has(name)) tags.push("paradox");
   return tags;
+};
+
+const getPrimaryCategory = (species) => {
+  const name = species?.name || "";
+  if (species?.is_mythical) return "mythical";
+  if (species?.is_legendary) return "legendary";
+  if (ULTRA_BEAST_SPECIES.has(name)) return "ultra-beast";
+  if (PARADOX_SPECIES.has(name)) return "paradox";
+  return "standard";
 };
 
 const getRelativePhysicalStatsLabel = (value) => {
@@ -1362,12 +1528,28 @@ const loadPokemon = async (name) => {
     )
   ).filter(Boolean);
 
+  const generation = getGenerationFromId(details.id);
+  const typeNames = [...details.types]
+    .sort((a, b) => (a.slot || 0) - (b.slot || 0))
+    .map((entry) => entry.type.name);
+  const baseStatTotal = details.stats.reduce(
+    (sum, stat) => sum + (Number(stat.base_stat) || 0),
+    0,
+  );
+
   const pokemon = {
     id: details.id,
     rawName: details.name,
     name: capitalize(details.name),
+    generation,
     height: details.height,
     weight: details.weight,
+    typeNames,
+    baseStatTotal,
+    category: getPrimaryCategory(species),
+    speciesColor: species.color?.name || "unknown",
+    habitat: species.habitat?.name || "unknown",
+    nameLength: details.name.length,
     abilities,
     categoryTags: getCategoryTags(species),
     cry: details.cries?.latest || details.cries?.legacy || "",
@@ -1534,6 +1716,7 @@ const setMobileHistoryPanelOpen = (lane, open) => {
 
 const setMobileHubOpen = (open) => {
   if (!els.mobileHub || !els.mobileHubToggle) return;
+  if (state.activeMode !== "smash" && open) return;
   state.mobileHubOpen = open;
   els.mobileHub.classList.toggle("is-open", open);
   els.mobileHub.setAttribute("aria-hidden", open ? "false" : "true");
@@ -1851,26 +2034,606 @@ const showSummaryIfNeeded = () => {
   toggleModal(els.summaryModal, true);
 };
 
+const setBlockDisabled = (block, disabled) => {
+  if (!block) return;
+  block.classList.toggle("is-disabled", disabled);
+  block.querySelectorAll("input, button, select").forEach((control) => {
+    control.disabled = disabled;
+  });
+};
+
+const updateModeSpecificControls = () => {
+  const inGuessMode = state.activeMode === "guess";
+  setBlockDisabled(els.typeFilterBlock, inGuessMode);
+  setBlockDisabled(els.deckOptionsBlock, inGuessMode);
+
+  if (els.mobileDaily) {
+    els.mobileDaily.disabled = inGuessMode;
+    els.mobileDaily.classList.toggle("is-disabled", inGuessMode);
+  }
+  if (els.mobileShiny) {
+    els.mobileShiny.disabled = inGuessMode;
+    els.mobileShiny.classList.toggle("is-disabled", inGuessMode);
+  }
+};
+
+const syncModeUi = () => {
+  const isSmash = state.activeMode === "smash";
+  document.documentElement.classList.toggle("guess-mode", !isSmash);
+  document.body.classList.toggle("guess-mode", !isSmash);
+
+  if (els.smashModePane) {
+    els.smashModePane.hidden = !isSmash;
+    els.smashModePane.classList.toggle("is-active", isSmash);
+  }
+  if (els.guessModePane) {
+    els.guessModePane.hidden = isSmash;
+    els.guessModePane.classList.toggle("is-active", !isSmash);
+  }
+
+  if (els.modeSmashBtn) {
+    els.modeSmashBtn.classList.toggle("is-active", isSmash);
+    els.modeSmashBtn.setAttribute("aria-selected", isSmash ? "true" : "false");
+  }
+  if (els.modeGuessBtn) {
+    els.modeGuessBtn.classList.toggle("is-active", !isSmash);
+    els.modeGuessBtn.setAttribute("aria-selected", isSmash ? "false" : "true");
+  }
+
+  updateModeSpecificControls();
+};
+
+const loadGenerationRoster = async (genId) => {
+  if (state.genRosterCache.has(genId)) {
+    return state.genRosterCache.get(genId);
+  }
+  const generation = await fetchJson(`${POKEAPI}/generation/${genId}`);
+  const names = generation.pokemon_species.map((entry) => entry.name);
+  state.genRosterCache.set(genId, names);
+  return names;
+};
+
+const loadSelectedGenerationRoster = async () => {
+  const genIds = Array.from(state.selectedGens.values()).sort((a, b) => a - b);
+  if (!genIds.length) return [];
+  const rosters = await Promise.all(genIds.map((id) => loadGenerationRoster(id)));
+  return Array.from(new Set(rosters.flat()));
+};
+
+const buildGuessRosterFromSelectedGens = async () => {
+  const roster = await loadSelectedGenerationRoster();
+  state.guessRoster = roster;
+
+  const lookup = new Map();
+  roster.forEach((name) => {
+    const pretty = capitalize(name);
+    const aliases = [
+      name,
+      pretty,
+      name.replace(/-/g, " "),
+      pretty.replace(/-/g, " "),
+      name.replace(/-/g, ""),
+      pretty.replace(/\s+/g, ""),
+    ];
+    aliases.forEach((alias) => {
+      const token = normalizeGuessToken(alias);
+      if (!token || lookup.has(token)) return;
+      lookup.set(token, name);
+    });
+  });
+  state.guessNameLookup = lookup;
+
+  if (els.guessNameList) {
+    els.guessNameList.innerHTML = "";
+    roster.forEach((name) => {
+      const option = document.createElement("option");
+      option.value = capitalize(name);
+      els.guessNameList.appendChild(option);
+    });
+  }
+
+  return roster;
+};
+
+const formatGuessDirection = (guessValue, targetValue, formatValue) => {
+  if (!Number.isFinite(guessValue) || !Number.isFinite(targetValue)) {
+    return {
+      state: "miss",
+      label: formatValue(guessValue),
+    };
+  }
+  if (guessValue === targetValue) {
+    return {
+      state: "exact",
+      label: formatValue(guessValue),
+    };
+  }
+  const arrow = targetValue > guessValue ? "↑" : "↓";
+  return {
+    state: "direction",
+    label: `${formatValue(guessValue)} ${arrow}`,
+  };
+};
+
+const compareGuessPokemon = (guessPokemon, targetPokemon) => {
+  const isCorrect = guessPokemon.rawName === targetPokemon.rawName;
+  const guessTypeSet = new Set(guessPokemon.typeNames || []);
+  const targetTypeSet = new Set(targetPokemon.typeNames || []);
+  const sharedTypes = Array.from(guessTypeSet).filter((type) =>
+    targetTypeSet.has(type),
+  );
+  const exactTypeMatch =
+    guessTypeSet.size === targetTypeSet.size &&
+    Array.from(guessTypeSet).every((type) => targetTypeSet.has(type));
+
+  return {
+    rawName: guessPokemon.rawName,
+    isCorrect,
+    cells: {
+      name: {
+        state: isCorrect ? "exact" : "miss",
+        label: guessPokemon.name,
+      },
+      generation: formatGuessDirection(
+        guessPokemon.generation,
+        targetPokemon.generation,
+        (value) => `Gen ${value ?? "?"}`,
+      ),
+      type: {
+        state: exactTypeMatch ? "exact" : sharedTypes.length ? "partial" : "miss",
+        label: humanizeTypeList(guessPokemon.typeNames),
+      },
+      height: formatGuessDirection(
+        guessPokemon.height,
+        targetPokemon.height,
+        (value) => `${formatMeters(value)} m`,
+      ),
+      weight: formatGuessDirection(
+        guessPokemon.weight,
+        targetPokemon.weight,
+        (value) => `${formatKilograms(value)} kg`,
+      ),
+      bst: formatGuessDirection(
+        guessPokemon.baseStatTotal,
+        targetPokemon.baseStatTotal,
+        (value) => String(value ?? "?"),
+      ),
+      category: {
+        state: guessPokemon.category === targetPokemon.category ? "exact" : "miss",
+        label:
+          CATEGORY_LABELS[guessPokemon.category] ||
+          capitalize(guessPokemon.category || "standard"),
+      },
+    },
+  };
+};
+
+const buildGuessCluePlan = (targetPokemon) => {
+  if (!targetPokemon) return [];
+
+  const typeNames = Array.isArray(targetPokemon.typeNames)
+    ? targetPokemon.typeNames
+    : [];
+  const randomType =
+    typeNames[Math.floor(Math.random() * Math.max(typeNames.length, 1))] ||
+    "unknown";
+
+  const typeHints = [
+    {
+      id: "type-signal",
+      label: "Type signal",
+      value: `One of its types is ${capitalize(randomType)}`,
+    },
+    {
+      id: "type-profile",
+      label: "Type profile",
+      value: typeNames.length > 1 ? "This Pokemon is dual-type." : "This Pokemon is single-type.",
+    },
+    {
+      id: "type-family",
+      label: "Type family",
+      value: humanizeTypeList(typeNames),
+    },
+  ];
+  const selectedTypeHint =
+    typeHints[Math.floor(Math.random() * typeHints.length)];
+
+  const habitatLabel =
+    targetPokemon.habitat && targetPokemon.habitat !== "unknown"
+      ? capitalize(targetPokemon.habitat)
+      : `${capitalize(targetPokemon.speciesColor || "unknown")} color`;
+
+  const categoryLabel =
+    CATEGORY_LABELS[targetPokemon.category] ||
+    capitalize(targetPokemon.category || "standard");
+
+  const pool = [
+    { id: "generation", label: "Generation", value: `Gen ${targetPokemon.generation || "?"}` },
+    { id: "habitat", label: "Habitat / color", value: habitatLabel },
+    { id: "category", label: "Category", value: categoryLabel },
+    {
+      id: "physical-profile",
+      label: "Physical profile",
+      value: `${formatMeters(targetPokemon.height)} m · ${formatKilograms(targetPokemon.weight)} kg`,
+    },
+    { id: "height", label: "Height", value: `${formatMeters(targetPokemon.height)} m` },
+    { id: "weight", label: "Weight", value: `${formatKilograms(targetPokemon.weight)} kg` },
+    {
+      id: "bst",
+      label: "Base stat total",
+      value: `${targetPokemon.baseStatTotal} BST`,
+    },
+    {
+      id: "name-start",
+      label: "Name start",
+      value: `Starts with ${targetPokemon.name.charAt(0)}`,
+    },
+    {
+      id: "name-shape",
+      label: "Name shape",
+      value: `${targetPokemon.nameLength} letters`,
+    },
+    {
+      id: "name-end",
+      label: "Name ending",
+      value: `Ends with ${targetPokemon.name.charAt(targetPokemon.name.length - 1)}`,
+    },
+  ];
+
+  const selected = [selectedTypeHint, ...shuffle(pool).slice(0, 4)];
+  return selected;
+};
+
+const getGuessMissCount = () => {
+  if (state.guess.status === "won") {
+    return Math.max(0, state.guess.attempts - 1);
+  }
+  return state.guess.attempts;
+};
+
+const renderGuessClues = () => {
+  if (!els.guessClues) return;
+  els.guessClues.innerHTML = "";
+
+  const target = state.guess.targetPokemon;
+  if (!target) {
+    const empty = document.createElement("p");
+    empty.className = "guess-clue-empty";
+    empty.textContent = "Select at least one generation to start.";
+    els.guessClues.appendChild(empty);
+    return;
+  }
+  const clues = Array.isArray(state.guess.clues) ? state.guess.clues : [];
+  if (!clues.length) {
+    const empty = document.createElement("p");
+    empty.className = "guess-clue-empty";
+    empty.textContent = "Clues are loading...";
+    els.guessClues.appendChild(empty);
+    return;
+  }
+
+  const misses = getGuessMissCount();
+  let revealCount = Math.min(clues.length, misses);
+  if (state.guess.status === "won" || state.guess.status === "lost") {
+    revealCount = clues.length;
+  }
+
+  clues.forEach((clue, index) => {
+    const unlocked = index < revealCount;
+    const row = document.createElement("div");
+    row.className = "guess-clue";
+    row.classList.add(unlocked ? "is-unlocked" : "is-locked");
+
+    const key = document.createElement("span");
+    key.className = "guess-clue-key";
+    key.textContent = clue.label;
+
+    const value = document.createElement("span");
+    value.className = "guess-clue-value";
+    value.textContent = unlocked ? clue.value : "Locked";
+
+    row.appendChild(key);
+    row.appendChild(value);
+    els.guessClues.appendChild(row);
+  });
+};
+
+const renderGuessHistory = () => {
+  if (!els.guessHistory) return;
+  els.guessHistory.innerHTML = "";
+
+  if (!state.guess.guesses.length) {
+    const empty = document.createElement("p");
+    empty.className = "guess-history-empty";
+    empty.textContent = "No guesses yet.";
+    els.guessHistory.appendChild(empty);
+    return;
+  }
+
+  const columns = [
+    ["name", "Name"],
+    ["generation", "Gen"],
+    ["type", "Type"],
+    ["height", "Height"],
+    ["weight", "Weight"],
+    ["bst", "BST"],
+    ["category", "Category"],
+  ];
+
+  state.guess.guesses.forEach((guessRow) => {
+    const row = document.createElement("div");
+    row.className = "guess-row";
+    if (guessRow.isCorrect) {
+      row.classList.add("is-correct");
+    }
+
+    columns.forEach(([key, label]) => {
+      const cellData = guessRow.cells[key];
+      const cell = document.createElement("span");
+      cell.className = `guess-cell guess-cell-${cellData.state || "miss"}`;
+      cell.dataset.col = label;
+      cell.textContent = cellData.label;
+      row.appendChild(cell);
+    });
+
+    els.guessHistory.appendChild(row);
+  });
+};
+
+const renderGuessMode = () => {
+  const target = state.guess.targetPokemon;
+  const isFinished =
+    state.guess.status === "won" || state.guess.status === "lost";
+  const isPlayable = state.guess.status === "playing" && Boolean(target);
+
+  if (els.guessTargetCard) {
+    els.guessTargetCard.classList.toggle("is-concealed", Boolean(target) && !isFinished);
+  }
+  if (els.guessTargetImage) {
+    if (target?.images?.main) {
+      els.guessTargetImage.src = target.images.main;
+      els.guessTargetImage.alt = isFinished
+        ? `${target.name} artwork`
+        : "Hidden Pokemon silhouette";
+    } else {
+      els.guessTargetImage.removeAttribute("src");
+      els.guessTargetImage.alt = "No Pokemon selected";
+    }
+  }
+  if (els.guessTargetName) {
+    if (!target) {
+      els.guessTargetName.textContent = "Pick generations to start";
+    } else if (isFinished) {
+      els.guessTargetName.textContent = target.name;
+    } else {
+      els.guessTargetName.textContent = "Who's that Pokemon?";
+    }
+  }
+  if (els.guessTargetMeta) {
+    if (target && isFinished) {
+      const categoryLabel =
+        CATEGORY_LABELS[target.category] || capitalize(target.category || "standard");
+      els.guessTargetMeta.hidden = false;
+      els.guessTargetMeta.textContent = `#${String(target.id).padStart(4, "0")} · ${humanizeTypeList(target.typeNames)} · ${categoryLabel}`;
+    } else {
+      els.guessTargetMeta.hidden = true;
+      els.guessTargetMeta.textContent = "";
+    }
+  }
+  if (els.guessAttempts) {
+    els.guessAttempts.textContent = `${state.guess.attempts} / ${GUESS_MAX_ATTEMPTS} guesses`;
+  }
+  if (els.guessLive) {
+    els.guessLive.textContent = state.guess.message || "";
+  }
+  if (els.guessInput) {
+    els.guessInput.disabled = !isPlayable;
+  }
+  if (els.guessSubmitBtn) {
+    els.guessSubmitBtn.disabled = !isPlayable;
+  }
+  if (els.guessNextBtn) {
+    els.guessNextBtn.hidden = !isFinished;
+  }
+
+  renderGuessClues();
+  renderGuessHistory();
+  updateCounts();
+};
+
+const finishGuessRound = (result) => {
+  if (!state.guess.targetPokemon) return;
+  if (result !== "won" && result !== "lost") return;
+
+  state.guess.status = result;
+  state.guessStats.played += 1;
+  if (result === "won") {
+    state.guessStats.wins += 1;
+    state.guessStats.streak += 1;
+    state.guess.message = `Correct! ${state.guess.targetPokemon.name} in ${state.guess.attempts}/${GUESS_MAX_ATTEMPTS}.`;
+  } else {
+    state.guessStats.streak = 0;
+    state.guess.message = `Out of guesses. It was ${state.guess.targetPokemon.name}.`;
+  }
+  state.guessStats.bestStreak = Math.max(
+    state.guessStats.bestStreak,
+    state.guessStats.streak,
+  );
+  saveGuessStats();
+  renderGuessMode();
+};
+
+const startGuessRound = async () => {
+  const token = ++state.guessRoundToken;
+  state.guess.targetName = "";
+  state.guess.targetPokemon = null;
+  state.guess.clues = [];
+  state.guess.guesses = [];
+  state.guess.attempts = 0;
+  state.guess.status = "loading";
+  state.guess.message = "Loading a new round...";
+  renderGuessMode();
+
+  try {
+    const roster = await buildGuessRosterFromSelectedGens();
+    if (token !== state.guessRoundToken) return;
+
+    if (!roster.length) {
+      state.guess.status = "empty";
+      state.guess.message = "Select at least one generation to start GuessDex.";
+      renderGuessMode();
+      return;
+    }
+
+    let targetName = roster[Math.floor(Math.random() * roster.length)];
+    if (roster.length > 1 && targetName === state.lastGuessTarget) {
+      const alternatives = roster.filter((name) => name !== state.lastGuessTarget);
+      targetName =
+        alternatives[Math.floor(Math.random() * alternatives.length)] || targetName;
+    }
+    const targetPokemon = await loadPokemon(targetName);
+    if (token !== state.guessRoundToken) return;
+
+    state.guess.targetName = targetName;
+    state.guess.targetPokemon = targetPokemon;
+    state.guess.clues = buildGuessCluePlan(targetPokemon);
+    state.guess.status = "playing";
+    state.guess.message = "New round started. Guess the Pokemon.";
+    state.lastGuessTarget = targetName;
+    if (els.guessInput) {
+      els.guessInput.value = "";
+    }
+    renderGuessMode();
+  } catch (error) {
+    console.error(error);
+    if (token !== state.guessRoundToken) return;
+    state.guess.status = "empty";
+    state.guess.message = "Unable to load a round right now. Try again.";
+    renderGuessMode();
+  }
+};
+
+const submitGuess = async () => {
+  if (state.activeMode !== "guess") return;
+  if (state.guess.status !== "playing" || !state.guess.targetPokemon) {
+    state.guess.message = "Start a round first.";
+    renderGuessMode();
+    return;
+  }
+
+  const rawValue = els.guessInput?.value || "";
+  const token = normalizeGuessToken(rawValue);
+  if (!token) {
+    state.guess.message = "Enter a Pokemon name.";
+    renderGuessMode();
+    return;
+  }
+
+  const canonicalName = state.guessNameLookup.get(token);
+  if (!canonicalName) {
+    state.guess.message = "That Pokemon is not in the selected generations.";
+    renderGuessMode();
+    return;
+  }
+
+  if (state.guess.guesses.some((entry) => entry.rawName === canonicalName)) {
+    state.guess.message = "You already guessed that Pokemon.";
+    renderGuessMode();
+    return;
+  }
+
+  if (els.guessSubmitBtn) {
+    els.guessSubmitBtn.disabled = true;
+  }
+
+  try {
+    const guessedPokemon = await loadPokemon(canonicalName);
+    if (state.activeMode !== "guess" || state.guess.status !== "playing") return;
+
+    const feedback = compareGuessPokemon(guessedPokemon, state.guess.targetPokemon);
+    state.guess.guesses.push(feedback);
+    state.guess.attempts = state.guess.guesses.length;
+
+    if (els.guessInput) {
+      els.guessInput.value = "";
+    }
+
+    if (feedback.isCorrect) {
+      finishGuessRound("won");
+      return;
+    }
+
+    if (state.guess.attempts >= GUESS_MAX_ATTEMPTS) {
+      finishGuessRound("lost");
+      return;
+    }
+
+    const remaining = GUESS_MAX_ATTEMPTS - state.guess.attempts;
+    state.guess.message = `Not quite. ${remaining} guess${remaining === 1 ? "" : "es"} left.`;
+    renderGuessMode();
+  } catch (error) {
+    console.error(error);
+    state.guess.message = "Could not load that guess. Try another Pokemon.";
+    renderGuessMode();
+  } finally {
+    if (els.guessSubmitBtn && state.guess.status === "playing") {
+      els.guessSubmitBtn.disabled = false;
+    }
+  }
+};
+
+const setMode = async (nextMode) => {
+  if (nextMode !== "smash" && nextMode !== "guess") return;
+  const modeChanged = state.activeMode !== nextMode;
+  if (nextMode === "smash") {
+    state.guessRoundToken += 1;
+  }
+  state.activeMode = nextMode;
+  saveMode();
+  if (state.activeMode === "guess") {
+    setPanelOpen(false);
+    setMobileHubOpen(false);
+    stopCryPlayback();
+  }
+
+  syncModeUi();
+  updateCounts();
+
+  if (state.activeMode === "guess") {
+    if (
+      modeChanged ||
+      !state.guess.targetPokemon ||
+      state.guess.status === "empty"
+    ) {
+      await startGuessRound();
+    } else {
+      renderGuessMode();
+    }
+    return;
+  }
+
+  if (modeChanged && !state.current && state.queue.length === 0) {
+    await rebuildQueue();
+    return;
+  }
+  updateCounts();
+};
+
 const primeQueue = async () => {
-  const genIds = Array.from(state.selectedGens.values());
-  if (!genIds.length) {
+  const names = await loadSelectedGenerationRoster();
+  if (!names.length) {
     state.queue = [];
     updateCounts();
     return;
   }
 
-  els.queueStatus.textContent = "Fetching roster...";
+  if (els.queueStatus) {
+    els.queueStatus.textContent = "Fetching roster...";
+  }
   if (els.mobileQueueStatus) {
     els.mobileQueueStatus.textContent = "Fetching roster...";
   }
 
-  const gens = await Promise.all(
-    genIds.map((id) => fetchJson(`${POKEAPI}/generation/${id}`)),
-  );
-
-  const names = gens.flatMap((gen) =>
-    gen.pokemon_species.map((entry) => entry.name),
-  );
   let filtered = await filterByTypes(names);
   if (els.onlyMega?.checked) {
     filtered = filtered.filter((name) => MEGA_EVOLUTION_SPECIES.has(name));
@@ -1885,6 +2648,7 @@ const primeQueue = async () => {
 };
 
 const loadNext = async () => {
+  if (state.activeMode !== "smash") return;
   if (state.queue.length === 0) {
     stopCryPlayback();
     state.current = null;
@@ -1924,6 +2688,10 @@ const loadNext = async () => {
 };
 
 const rebuildQueue = async () => {
+  if (state.activeMode !== "smash") {
+    await startGuessRound();
+    return;
+  }
   state.queue = [];
   state.current = null;
   updateCounts();
@@ -1932,6 +2700,7 @@ const rebuildQueue = async () => {
 };
 
 const shuffleDeck = async () => {
+  if (state.activeMode !== "smash") return;
   if (state.isShuffling) return;
   stopCryPlayback();
   state.isShuffling = true;
@@ -1971,6 +2740,7 @@ const shuffleDeck = async () => {
 };
 
 const registerAction = (type) => {
+  if (state.activeMode !== "smash") return;
   if (!state.current) return;
 
   const historyEntry = {
@@ -2003,6 +2773,7 @@ const registerAction = (type) => {
 };
 
 const swipe = (direction) => {
+  if (state.activeMode !== "smash") return;
   if (!state.current) return;
   stopCryPlayback();
 
@@ -2023,6 +2794,7 @@ const swipe = (direction) => {
 };
 
 const undoLast = () => {
+  if (state.activeMode !== "smash") return;
   if (!state.history.length) return;
 
   const last = state.history.pop();
@@ -2054,6 +2826,7 @@ const undoLast = () => {
 };
 
 const clearHistory = () => {
+  if (state.activeMode !== "smash") return;
   state.smashing = [];
   state.passing = [];
   state.history = [];
@@ -2072,6 +2845,7 @@ const clearHistory = () => {
 };
 
 const handlePointerDown = (event) => {
+  if (state.activeMode !== "smash") return;
   if (
     event.target.closest("button, input, label") ||
     event.target === els.mainImage
@@ -2090,6 +2864,7 @@ const handlePointerDown = (event) => {
 };
 
 const handlePointerMove = (event) => {
+  if (state.activeMode !== "smash") return;
   if (!state.dragCandidate) return;
   const deltaX = event.clientX - state.dragStart;
   const deltaY = event.clientY - state.dragStartY;
@@ -2128,6 +2903,7 @@ const handlePointerMove = (event) => {
 };
 
 const handlePointerUp = (event) => {
+  if (state.activeMode !== "smash") return;
   if (!state.dragCandidate) return;
   const deltaX = event.clientX - state.dragStart;
   const deltaY = event.clientY - state.dragStartY;
@@ -2168,6 +2944,7 @@ const handlePointerUp = (event) => {
 };
 
 const handlePointerCancel = () => {
+  if (state.activeMode !== "smash") return;
   if (!state.dragCandidate) return;
   state.isDragging = false;
   state.dragCandidate = false;
@@ -2185,6 +2962,7 @@ const handlePointerCancel = () => {
 };
 
 const cycleImage = (direction) => {
+  if (state.activeMode !== "smash") return;
   if (!state.current || !state.currentGallery.length) return;
   const gallery = state.currentGallery;
   const currentIndex = gallery.indexOf(state.currentImage);
@@ -2200,6 +2978,7 @@ const cycleImage = (direction) => {
 };
 
 const handleImagePointerDown = (event) => {
+  if (state.activeMode !== "smash") return;
   state.imageSwipeStartX = event.clientX;
   state.imageSwipeStartY = event.clientY;
   state.imageSwipePointerId = event.pointerId;
@@ -2210,6 +2989,7 @@ const handleImagePointerDown = (event) => {
 };
 
 const handleImagePointerMove = (event) => {
+  if (state.activeMode !== "smash") return;
   if (!state.imageSwipeActive) return;
   const deltaX = event.clientX - state.imageSwipeStartX;
   const deltaY = event.clientY - state.imageSwipeStartY;
@@ -2219,6 +2999,7 @@ const handleImagePointerMove = (event) => {
 };
 
 const handleImagePointerUp = (event) => {
+  if (state.activeMode !== "smash") return;
   if (!state.imageSwipeActive) return;
   const deltaX = event.clientX - state.imageSwipeStartX;
   const deltaY = event.clientY - state.imageSwipeStartY;
@@ -2262,6 +3043,30 @@ const handleAbilityTabClick = (event) => {
 };
 
 const setupEvents = () => {
+  if (els.modeSmashBtn) {
+    els.modeSmashBtn.addEventListener("click", () => {
+      setMode("smash");
+    });
+  }
+  if (els.modeGuessBtn) {
+    els.modeGuessBtn.addEventListener("click", () => {
+      setMode("guess");
+    });
+  }
+
+  if (els.guessForm) {
+    els.guessForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitGuess();
+    });
+  }
+
+  if (els.guessNextBtn) {
+    els.guessNextBtn.addEventListener("click", () => {
+      startGuessRound();
+    });
+  }
+
   els.passBtn.addEventListener("click", () => swipe("pass"));
   els.smashBtn.addEventListener("click", () => swipe("smash"));
   els.undoBtn.addEventListener("click", undoLast);
@@ -2303,30 +3108,43 @@ const setupEvents = () => {
     buildGenFilters();
     saveFilters();
     updateMobileFilterBar();
-    rebuildQueue();
+    if (state.activeMode === "guess") {
+      startGuessRound();
+    } else {
+      rebuildQueue();
+    }
   });
   els.clearAll.addEventListener("click", () => {
     state.selectedGens.clear();
     buildGenFilters();
     saveFilters();
     updateMobileFilterBar();
-    rebuildQueue();
+    if (state.activeMode === "guess") {
+      startGuessRound();
+    } else {
+      rebuildQueue();
+    }
   });
   els.typeAll.addEventListener("click", () => {
     state.selectedTypes = new Set(TYPE_LIST);
     buildTypeFilters();
     saveFilters();
     updateMobileFilterBar();
-    rebuildQueue();
+    if (state.activeMode === "smash") {
+      rebuildQueue();
+    }
   });
   els.typeClear.addEventListener("click", () => {
     state.selectedTypes.clear();
     buildTypeFilters();
     saveFilters();
     updateMobileFilterBar();
-    rebuildQueue();
+    if (state.activeMode === "smash") {
+      rebuildQueue();
+    }
   });
   els.autoReveal.addEventListener("change", () => {
+    if (state.activeMode !== "smash") return;
     const showStats = els.autoReveal.checked;
     els.card.classList.toggle("show-stats", showStats);
     updatePeekButton(showStats);
@@ -2334,6 +3152,7 @@ const setupEvents = () => {
     updateMobileFilterBar();
   });
   els.shinyMode.addEventListener("change", () => {
+    if (state.activeMode !== "smash") return;
     if (state.current) {
       setCardData(state.current);
     }
@@ -2343,13 +3162,18 @@ const setupEvents = () => {
   els.dailyDeck.addEventListener("change", () => {
     saveOptions();
     updateMobileFilterBar();
-    rebuildQueue();
+    if (state.activeMode === "smash") {
+      rebuildQueue();
+    }
   });
   els.onlyMega.addEventListener("change", () => {
     saveOptions();
-    rebuildQueue();
+    if (state.activeMode === "smash") {
+      rebuildQueue();
+    }
   });
   els.keepHistory.addEventListener("change", () => {
+    if (state.activeMode !== "smash") return;
     renderHistory(state.smashing, [els.smashList, els.mobileHubSmashList]);
     renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
     saveOptions();
@@ -2362,9 +3186,17 @@ const setupEvents = () => {
   els.card.addEventListener("pointercancel", handlePointerCancel);
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") swipe("pass");
-    if (event.key === "ArrowRight") swipe("smash");
-    if (event.key.toLowerCase() === "z" && (event.metaKey || event.ctrlKey)) {
+    if (state.activeMode === "smash" && event.key === "ArrowLeft") {
+      swipe("pass");
+    }
+    if (state.activeMode === "smash" && event.key === "ArrowRight") {
+      swipe("smash");
+    }
+    if (
+      state.activeMode === "smash" &&
+      event.key.toLowerCase() === "z" &&
+      (event.metaKey || event.ctrlKey)
+    ) {
       undoLast();
     }
     if (event.key === "?" || (event.key === "/" && event.shiftKey)) {
@@ -2423,6 +3255,7 @@ const setupEvents = () => {
 
   if (els.mobileHubToggle) {
     els.mobileHubToggle.addEventListener("click", () => {
+      if (state.activeMode !== "smash") return;
       setPanelOpen(false);
       setMobileHubOpen(!state.mobileHubOpen);
     });
@@ -2506,25 +3339,33 @@ const init = async () => {
   if (!filtersLoaded && state.selectedTypes.size === 0) {
     state.selectedTypes = new Set(TYPE_LIST);
   }
+  loadMode();
   loadHistory();
   loadOptions();
   loadFavorites();
+  loadGuessStats();
   buildGenFilters();
   buildTypeFilters();
   updateMobileFilterBar();
   setupEvents();
+  syncModeUi();
   updateCounts();
   renderHistory(state.smashing, [els.smashList, els.mobileHubSmashList]);
   renderHistory(state.passing, [els.passList, els.mobileHubPassList]);
   renderFavorites();
   renderBadges();
+  renderGuessMode();
   updateUndoLabel();
   updateCryButton();
   if (els.autoReveal.checked) {
     els.card.classList.add("show-stats");
     updatePeekButton(true);
   }
-  await rebuildQueue();
+  if (state.activeMode === "guess") {
+    await startGuessRound();
+  } else {
+    await rebuildQueue();
+  }
 };
 
 const registerServiceWorker = () => {
