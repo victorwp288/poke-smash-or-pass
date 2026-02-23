@@ -1,0 +1,205 @@
+.silhouette-blitz {
+  height: 100%;
+}
+
+.silhouette-blitz-shell {
+  min-height: 100%;
+}
+
+.silhouette-blitz-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  font-size: clamp(22px, 2.5vw, 32px);
+}
+
+.silhouette-blitz-feedback {
+  margin-top: var(--space-3);
+  border: var(--stroke-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.78);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.silhouette-blitz-feedback.is-success {
+  background: rgba(85, 191, 119, 0.22);
+}
+
+.silhouette-blitz-feedback.is-warning {
+  background: rgba(255, 184, 84, 0.24);
+}
+
+.silhouette-blitz-feedback.is-danger {
+  background: rgba(245, 102, 102, 0.22);
+}
+
+.silhouette-blitz-timer-wrap {
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.silhouette-blitz-timer-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.silhouette-blitz-timer-track {
+  height: 12px;
+  border-radius: var(--radius-pill);
+  border: var(--stroke-soft);
+  background: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+
+.silhouette-blitz-timer-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #47d17e, #ffbd58, #f35f5f);
+  transition: width 0.3s ease;
+}
+
+.silhouette-blitz-stage {
+  align-items: start;
+}
+
+.silhouette-blitz-figure {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.silhouette-blitz-figure h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  font-size: clamp(20px, 2.2vw, 26px);
+}
+
+.silhouette-blitz-figure p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.silhouette-blitz-options-wrap h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+.silhouette-blitz-options {
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.silhouette-blitz-option {
+  border: var(--stroke-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.86);
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.silhouette-blitz-option:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(26, 24, 18, 0.12);
+}
+
+.silhouette-blitz-option span {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.silhouette-blitz-option small {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.silhouette-blitz-option.is-correct {
+  border-color: rgba(39, 151, 77, 0.65);
+  background: rgba(219, 255, 228, 0.92);
+}
+
+.silhouette-blitz-option.is-wrong {
+  border-color: rgba(199, 69, 69, 0.65);
+  background: rgba(255, 228, 228, 0.92);
+}
+
+.silhouette-blitz-actions {
+  margin-top: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+}
+
+.silhouette-blitz-history {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.silhouette-blitz-history li {
+  border: var(--stroke-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.76);
+  padding: 8px 10px;
+  font-size: 12px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.silhouette-blitz-history li.is-empty {
+  display: block;
+  color: var(--ink-soft);
+}
+
+.silhouette-blitz-history-result {
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.silhouette-blitz-history-result.is-win {
+  background: rgba(85, 191, 119, 0.22);
+}
+
+.silhouette-blitz-history-result.is-loss {
+  background: rgba(245, 102, 102, 0.22);
+}
+
+.silhouette-blitz-empty {
+  min-height: 220px;
+  display: grid;
+  place-content: center;
+  gap: var(--space-2);
+  justify-items: center;
+}
+
+@media (max-width: 760px) {
+  .silhouette-blitz-history li {
+    grid-template-columns: 1fr;
+  }
+}

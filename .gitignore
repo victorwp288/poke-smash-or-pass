@@ -1,0 +1,12 @@
+node_modules
+dist
+playwright-report
+test-results
+coverage
+
+*.tsbuildinfo
+.DS_Store
+
+.bun
+.bun-cache
+.tmp

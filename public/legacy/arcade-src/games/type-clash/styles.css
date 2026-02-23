@@ -1,0 +1,151 @@
+.type-clash-game {
+  align-content: start;
+}
+
+.type-clash-board {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.type-clash-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.type-clash-board h2 {
+  margin: 0;
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+.type-clash-options {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.type-clash-option {
+  border: var(--stroke);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.85);
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.type-clash-option:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-1);
+}
+
+.type-clash-option.was-picked {
+  border-color: rgba(30, 166, 177, 0.85);
+  box-shadow: 0 0 0 3px rgba(30, 166, 177, 0.2);
+}
+
+.type-clash-option.is-correct {
+  background: rgba(98, 196, 120, 0.28);
+}
+
+.type-clash-option.is-wrong {
+  background: rgba(255, 106, 106, 0.2);
+}
+
+.type-clash-option:disabled {
+  cursor: default;
+}
+
+.type-clash-media {
+  width: 100%;
+}
+
+.type-clash-fallback {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.type-clash-option-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.type-clash-option-meta h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.type-clash-types,
+.type-clash-multiplier {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.type-clash-multiplier {
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.type-clash-feedback {
+  margin: 0;
+  min-height: 20px;
+  font-weight: 600;
+}
+
+.type-clash-feedback.is-busy {
+  color: var(--ink-soft);
+}
+
+.type-clash-controls {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.type-clash-history-card h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.type-clash-history {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  max-height: 170px;
+  overflow: auto;
+}
+
+.type-clash-history li {
+  font-size: 13px;
+}
+
+.type-clash-history li.is-correct {
+  color: #235b29;
+}
+
+.type-clash-history li.is-wrong {
+  color: #8f3131;
+}
+
+.type-clash-history-empty {
+  list-style: none;
+  margin-left: -18px;
+  color: var(--ink-soft);
+}
+
+.type-clash-placeholder {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 780px) {
+  .type-clash-options {
+    grid-template-columns: 1fr;
+  }
+}

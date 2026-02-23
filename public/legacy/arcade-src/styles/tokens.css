@@ -1,0 +1,65 @@
+:root {
+  --bg-0: #f8f2e6;
+  --bg-1: #ffdcb8;
+  --bg-2: #ffeeb8;
+  --ink-strong: #1a1812;
+  --ink-soft: #4c4638;
+  --accent-a: #ff6b2d;
+  --accent-b: #1ea6b1;
+  --accent-c: #ffd447;
+  --surface: rgba(255, 252, 245, 0.88);
+  --surface-strong: #fff8ea;
+  --stroke: 2px solid rgba(26, 24, 18, 0.92);
+  --stroke-soft: 1px solid rgba(26, 24, 18, 0.25);
+  --shadow-1: 0 10px 24px rgba(20, 18, 12, 0.12);
+  --shadow-2: 0 18px 42px rgba(20, 18, 12, 0.2);
+
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  --font-display: "Bungee", "Trebuchet MS", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+
+  --focus: 3px solid rgba(30, 166, 177, 0.8);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink-strong);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 107, 45, 0.28), transparent 40%),
+    radial-gradient(circle at 90% 20%, rgba(30, 166, 177, 0.22), transparent 45%),
+    radial-gradient(circle at 70% 80%, rgba(255, 212, 71, 0.3), transparent 45%),
+    linear-gradient(135deg, var(--bg-0), var(--bg-1));
+  background-attachment: fixed;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

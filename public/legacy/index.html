@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmashDex — Swipe Pokemon</title>
+  <meta name="theme-color" content="#ff6b2d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="bg-noise" aria-hidden="true"></div>
+  <div class="bg-blobs" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">SmashDex</span>
+    </div>
+    <div class="mode-switch" role="tablist" aria-label="Mini-games">
+      <button
+        class="mode-pill is-active"
+        id="modeSmashBtn"
+        role="tab"
+        aria-selected="true"
+        aria-controls="smashModePane"
+      >
+        Smash / Pass
+      </button>
+      <button
+        class="mode-pill"
+        id="modeGuessBtn"
+        role="tab"
+        aria-selected="false"
+        aria-controls="guessModePane"
+      >
+        GuessDex
+      </button>
+    </div>
+    <div class="status">
+      <div class="status-pill" id="queueStatus">Loading roster...</div>
+      <div class="score-pill">
+        <span id="scoreLabelA">Smash</span> <span id="smashCount">0</span> -
+        <span id="scoreLabelB">Pass</span> <span id="passCount">0</span>
+      </div>
+      <button class="pill help-btn" id="helpBtn">?</button>
+    </div>
+    <button class="pokeball-toggle" id="mobileHubToggle" aria-controls="mobileHub" aria-expanded="false"
+      aria-label="Open controls">
+      <span class="pokeball-toggle-core" aria-hidden="true"></span>
+    </button>
+  </header>
+  <div class="mobile-hub" id="mobileHub" aria-hidden="true">
+    <div class="mobile-hub-tools">
+      <button class="pill" id="mobileHubHelp">Help</button>
+      <button class="pill" id="mobileHubFilters">Filters</button>
+      <button class="pill" id="mobileHubClose">Close</button>
+    </div>
+    <div class="mobile-hub-head">
+      <div class="status-pill" id="mobileQueueStatus">Loading roster...</div>
+      <div class="score-pill" id="mobileScoreStatus">Smash 0 - Pass 0</div>
+    </div>
+    <div class="mobile-hub-actions">
+      <button class="action pass" id="mobilePassBtn">Pass</button>
+      <button class="action smash" id="mobileSmashBtn">Smash</button>
+      <button class="action undo" id="mobileUndoBtn">Undo</button>
+      <button class="action shuffle" id="mobileShuffleBtn">Shuffle</button>
+    </div>
+    <div class="mobile-hub-history" aria-label="Swipe history">
+      <div class="mobile-hub-history-lane">
+        <button
+          class="mobile-hub-history-head"
+          id="mobileHubSmashToggle"
+          aria-expanded="false"
+          aria-controls="mobileHubSmashPanel"
+          type="button"
+        >
+          <span class="mobile-hub-history-title">Smash list</span>
+          <span class="mobile-hub-history-count" id="mobileHubSmashCount">0</span>
+          <span class="mobile-hub-history-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="mobile-hub-history-panel" id="mobileHubSmashPanel" hidden>
+          <div class="collection wrap mobile-hub-history-list" id="mobileHubSmashList"></div>
+        </div>
+      </div>
+      <div class="mobile-hub-history-lane">
+        <button
+          class="mobile-hub-history-head"
+          id="mobileHubPassToggle"
+          aria-expanded="false"
+          aria-controls="mobileHubPassPanel"
+          type="button"
+        >
+          <span class="mobile-hub-history-title">Pass list</span>
+          <span class="mobile-hub-history-count" id="mobileHubPassCount">0</span>
+          <span class="mobile-hub-history-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="mobile-hub-history-panel" id="mobileHubPassPanel" hidden>
+          <div class="collection wrap mobile-hub-history-list" id="mobileHubPassList"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mobile-hub-favorites" aria-label="Saved Pokemon">
+      <div class="mobile-hub-favorites-head">
+        <span>Favorites</span>
+        <span class="mobile-favorites-count" id="mobileFavoritesCount">0</span>
+      </div>
+      <div class="collection mobile-hub-favorites-list" id="mobileFavoriteList"></div>
+    </div>
+  </div>
+
+  <main class="mode-stage">
+    <section class="mode-pane mode-pane-smash is-active" id="smashModePane">
+      <div class="layout">
+        <section class="deck">
+          <div class="mobile-filterbar" id="mobileFilterBar" aria-label="Quick filters">
+            <div class="filter-summary">
+              <span class="filter-title">Quick filters</span>
+              <span class="filter-counts" id="filterCounts">0/9 gens · 0/18 types</span>
+            </div>
+            <div class="filter-actions">
+              <button class="pill pill-mini" id="mobileDaily" aria-pressed="false">Daily deck</button>
+              <button class="pill pill-mini" id="mobileShiny" aria-pressed="false">Shiny mode</button>
+              <button class="pill pill-mini" id="mobileFilters" aria-controls="filterPanel" aria-expanded="false">
+                Filters
+              </button>
+            </div>
+          </div>
+
+          <div class="deck-core">
+            <div class="card-shell" id="cardShell">
+              <div class="card" id="card">
+                <div class="stamp stamp-smash">SMASH</div>
+                <div class="stamp stamp-pass">PASS</div>
+                <button class="favorite-fab" id="favoriteBtn" aria-label="Save Pokemon" aria-pressed="false">
+                  <svg class="heart-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 21.35L10.55 20.03C5.4 15.36 2 12.27 2 8.5C2 5.41 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.41 22 8.5C22 12.27 18.6 15.36 13.45 20.03L12 21.35Z" />
+                  </svg>
+                </button>
+                <button class="cry-fab" id="cryBtn" aria-label="Play Pokemon cry" title="Play cry"></button>
+                <div class="media">
+                  <img id="mainImage" alt="Pokemon artwork" />
+                  <div class="media-glow"></div>
+                </div>
+                <div class="thumbs" id="thumbs"></div>
+                <div class="card-body">
+                  <div class="title-row">
+                    <div>
+                      <h1 id="pokeName">Loading...</h1>
+                      <div class="subtitle-row">
+                        <div class="subtitle" id="pokeId">#0000</div>
+                      </div>
+                    </div>
+                    <div class="card-actions">
+                      <button class="pill peek-toggle" id="peekBtn" data-open="false">Peek stats</button>
+                    </div>
+                  </div>
+                  <div class="types" id="typeBadges"></div>
+                  <p class="bio" id="bio"></p>
+                  <div class="evolution" id="evolutionLine" aria-label="Evolution line" hidden></div>
+                  <div class="stats" id="stats"></div>
+                </div>
+              </div>
+              <div class="card-shadow"></div>
+            </div>
+
+            <div class="actions">
+              <button class="action pass" id="passBtn">Pass</button>
+              <button class="action undo" id="undoBtn">Undo</button>
+              <button class="action shuffle" id="shuffleBtn">Shuffle</button>
+              <button class="action smash" id="smashBtn">Smash</button>
+            </div>
+            <div class="hint">
+              <span class="hint-desktop">Tip: swipe with your trackpad or use left/right arrow keys.</span>
+              <span class="hint-mobile">Tip: swipe left or right to vote, swipe up to shuffle.</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel" id="filterPanel">
+          <div class="panel-header">
+            <h2>Filters</h2>
+            <button class="pill panel-close" id="panelClose">Close</button>
+          </div>
+          <div class="panel-block" id="genFilterBlock">
+            <h2>Generation filters</h2>
+            <div class="gen-grid" id="genGrid"></div>
+            <div class="panel-actions">
+              <button class="ghost" id="selectAll">Select all</button>
+              <button class="ghost" id="clearAll">Clear</button>
+            </div>
+          </div>
+
+          <div class="panel-block" id="typeFilterBlock">
+            <h2>Type filters</h2>
+            <div class="type-grid" id="typeGrid"></div>
+            <div class="panel-actions">
+              <button class="ghost" id="typeAll">All types</button>
+              <button class="ghost" id="typeClear">Clear</button>
+            </div>
+          </div>
+
+          <div class="panel-block" id="deckOptionsBlock">
+            <h2>Deck options</h2>
+            <label class="toggle">
+              <input type="checkbox" id="autoReveal" checked />
+              <span>Auto-reveal stats</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="shinyMode" />
+              <span>Shiny mode</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="dailyDeck" />
+              <span>Daily deck (20)</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="onlyMega" />
+              <span>Only Mega-capable</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="keepHistory" checked />
+              <span>Keep history</span>
+            </label>
+          </div>
+
+          <div class="panel-block">
+            <h2>Badges</h2>
+            <div class="collection wrap" id="badgeList"></div>
+          </div>
+
+          <div class="panel-block">
+            <h2>Favorites</h2>
+            <div class="collection wrap" id="favoriteList"></div>
+            <div class="panel-actions">
+              <button class="ghost" id="exportJson">Export JSON</button>
+              <button class="ghost" id="exportCsv">Export CSV</button>
+              <button class="ghost" id="shareCard">Share card</button>
+            </div>
+          </div>
+
+          <div class="panel-block history-panel-block">
+            <h2>Smash list</h2>
+            <div class="collection" id="smashList"></div>
+          </div>
+
+          <div class="panel-block history-panel-block">
+            <h2>Pass list</h2>
+            <div class="collection" id="passList"></div>
+            <div class="panel-actions">
+              <button class="ghost" id="clearHistory">Clear history</button>
+            </div>
+          </div>
+        </aside>
+        <div class="panel-overlay" id="panelOverlay" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="mode-pane mode-pane-guess" id="guessModePane" hidden>
+      <div class="guess-layout">
+        <section class="guess-board">
+          <article class="guess-target-card is-concealed" id="guessTargetCard">
+            <div class="guess-target-media">
+              <img id="guessTargetImage" alt="Hidden Pokemon silhouette" />
+            </div>
+            <div class="guess-target-copy">
+              <h2 id="guessTargetName">Who's that Pokemon?</h2>
+              <p class="guess-attempts" id="guessAttempts">0 / 6 guesses</p>
+              <p class="guess-target-meta" id="guessTargetMeta" hidden></p>
+            </div>
+          </article>
+
+          <section class="guess-clues" aria-label="Progressive hints">
+            <h3>Hints</h3>
+            <div class="guess-clue-list" id="guessClues"></div>
+          </section>
+
+          <form class="guess-form" id="guessForm" autocomplete="off">
+            <label class="guess-label" for="guessInput">Make a guess</label>
+            <div class="guess-form-row">
+              <input
+                id="guessInput"
+                name="guessInput"
+                type="text"
+                list="guessNameList"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Try: Pikachu"
+              />
+              <button class="action smash guess-submit" id="guessSubmitBtn" type="submit">Guess</button>
+            </div>
+            <datalist id="guessNameList"></datalist>
+          </form>
+
+          <p class="guess-live" id="guessLive" aria-live="polite"></p>
+
+          <div class="guess-round-actions">
+            <button class="action shuffle" id="guessNextBtn" type="button" hidden>Next Pokemon</button>
+          </div>
+        </section>
+
+        <section class="guess-results-panel">
+          <div class="guess-results-header">
+            <h2>Guess feedback</h2>
+            <p>Exact match, partial overlap, and directional hints.</p>
+          </div>
+          <section class="guess-gens guess-gens-side" aria-label="GuessDex generation filters">
+            <h3>Generation pool</h3>
+            <div class="gen-grid guess-gen-grid" id="guessGenGrid"></div>
+          </section>
+          <div class="guess-legend" aria-label="Feedback legend">
+            <span class="guess-legend-chip exact">Exact</span>
+            <span class="guess-legend-chip partial">Partial</span>
+            <span class="guess-legend-chip direction">Direction</span>
+            <span class="guess-legend-chip miss">Miss</span>
+          </div>
+          <div class="guess-grid-head">
+            <span>Name</span>
+            <span>Gen</span>
+            <span>Type</span>
+            <span>Height</span>
+            <span>Weight</span>
+            <span>BST</span>
+            <span>Category</span>
+          </div>
+          <div class="guess-history" id="guessHistory"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+
+  <div class="modal" id="summaryModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>Swipe summary</h2>
+      <div class="modal-body" id="summaryContent"></div>
+      <button class="action shuffle" id="summaryClose">Keep swiping</button>
+    </div>
+  </div>
+
+  <div class="modal" id="helpModal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>Controls</h2>
+      <div class="modal-body">
+        <div class="help-row"><span>Swipe</span><span>Drag card left/right</span></div>
+        <div class="help-row"><span>Keys</span><span>← Pass · → Smash</span></div>
+        <div class="help-row"><span>Undo</span><span>Cmd/Ctrl + Z</span></div>
+        <div class="help-row"><span>Stats</span><span>Peek/Hide button</span></div>
+        <div class="help-row"><span>Help</span><span>Press “?”</span></div>
+      </div>
+      <button class="action shuffle" id="helpClose">Got it</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

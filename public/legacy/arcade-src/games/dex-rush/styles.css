@@ -1,0 +1,124 @@
+.dex-rush-game {
+  align-content: start;
+}
+
+.dex-rush-board-wrap {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dex-rush-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.dex-rush-board-wrap h2 {
+  margin: 0;
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+.dex-rush-board {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dex-rush-card {
+  border: var(--stroke);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.85);
+  padding: var(--space-3);
+  display: grid;
+  gap: 8px;
+}
+
+.dex-rush-media {
+  width: 100%;
+}
+
+.dex-rush-media.is-hidden img {
+  filter: brightness(0) contrast(1.2) drop-shadow(0 12px 18px rgba(0, 0, 0, 0.25));
+}
+
+.dex-rush-fallback {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.dex-rush-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.dex-rush-dex,
+.dex-rush-types {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.dex-rush-guess-controls {
+  margin-top: 4px;
+}
+
+.dex-rush-feedback {
+  margin: 0;
+  min-height: 20px;
+  font-weight: 600;
+}
+
+.dex-rush-feedback.is-busy {
+  color: var(--ink-soft);
+}
+
+.dex-rush-controls {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.dex-rush-history-card h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.dex-rush-history {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  max-height: 170px;
+  overflow: auto;
+}
+
+.dex-rush-history li {
+  font-size: 13px;
+}
+
+.dex-rush-history li.is-correct {
+  color: #235b29;
+}
+
+.dex-rush-history li.is-wrong {
+  color: #8f3131;
+}
+
+.dex-rush-history-empty {
+  list-style: none;
+  margin-left: -18px;
+  color: var(--ink-soft);
+}
+
+.dex-rush-placeholder {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 780px) {
+  .dex-rush-board {
+    grid-template-columns: 1fr;
+  }
+}
