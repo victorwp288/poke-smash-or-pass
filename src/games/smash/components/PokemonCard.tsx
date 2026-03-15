@@ -580,6 +580,7 @@ export const PokemonCard = ({
 }: PokemonCardProps) => {
   const theme = useTheme();
   const [suppressImageClick, setSuppressImageClick] = React.useState(false);
+  const [pendingStatsScroll, setPendingStatsScroll] = React.useState(false);
   const imageSwipeRef = React.useRef({
     startX: 0,
     startY: 0,
@@ -611,6 +612,30 @@ export const PokemonCard = ({
     }
     onCycleImage("next");
   };
+
+  const handleStatsToggle = () => {
+    if (!showStats) {
+      setPendingStatsScroll(true);
+    } else {
+      setPendingStatsScroll(false);
+    }
+    onToggleStats();
+  };
+
+  const handleStatsEntered = React.useCallback(() => {
+    if (!pendingStatsScroll) return;
+
+    const scrollingElement =
+      document.scrollingElement ?? document.documentElement;
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: scrollingElement.scrollHeight,
+        behavior: "smooth"
+      });
+      setPendingStatsScroll(false);
+    });
+  }, [pendingStatsScroll]);
 
   const onImagePointerDown: React.PointerEventHandler<HTMLImageElement> = (
     event
@@ -901,17 +926,55 @@ export const PokemonCard = ({
           >
             <Stack spacing={1} sx={{ minWidth: 0 }}>
               <Stack spacing={1} sx={{ minWidth: 0 }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  sx={{ minWidth: 0 }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <Typography
+                      variant="h2"
+                      sx={{
+                        fontSize: { xs: "1.7rem", md: "2rem" },
+                        overflowWrap: "anywhere",
+                        mb: 1
+                      }}
+                    >
+                      {pokemon?.name || emptyTitle || "Loading…"}
+                    </Typography>
+                  </div>
+                  {pokemon ? (
+                    <Button
+                      variant="text"
+                      color="secondary"
+                      size="small"
+                      endIcon={
+                        showStats ? (
+                          <KeyboardArrowUpRoundedIcon fontSize="small" />
+                        ) : (
+                          <KeyboardArrowDownRoundedIcon fontSize="small" />
+                        )
+                      }
+                      onClick={handleStatsToggle}
+                      sx={{
+                        flexShrink: 0,
+                        alignSelf: "flex-start",
+                        minWidth: 0,
+                        px: 0.75,
+                        py: 0.25,
+                        fontSize: "0.73rem",
+                        letterSpacing: 0.15,
+                        opacity: 0.74,
+                        mt: 0.25
+                      }}
+                    >
+                      {showStats ? "Hide stats" : "Peek stats"}
+                    </Button>
+                  ) : null}
+                </Stack>
                 <div style={{ minWidth: 0 }}>
-                  <Typography
-                    variant="h2"
-                    sx={{
-                      fontSize: { xs: "1.7rem", md: "2rem" },
-                      overflowWrap: "anywhere",
-                      mb: 1
-                    }}
-                  >
-                    {pokemon?.name || emptyTitle || "Loading…"}
-                  </Typography>
                   <Stack
                     direction="row"
                     spacing={1}
@@ -963,33 +1026,12 @@ export const PokemonCard = ({
             </Stack>
 
             <Stack spacing={0.75} sx={{ mt: "auto", pt: 1 }}>
-              <Stack direction="row" justifyContent="flex-end">
-                <Button
-                  variant="text"
-                  color="secondary"
-                  size="small"
-                  endIcon={
-                    showStats ? (
-                      <KeyboardArrowUpRoundedIcon fontSize="small" />
-                    ) : (
-                      <KeyboardArrowDownRoundedIcon fontSize="small" />
-                    )
-                  }
-                  onClick={onToggleStats}
-                  sx={{
-                    minWidth: 0,
-                    px: 0.75,
-                    py: 0.25,
-                    fontSize: "0.73rem",
-                    letterSpacing: 0.15,
-                    opacity: 0.74
-                  }}
-                >
-                  {showStats ? "Hide stats" : "Peek stats"}
-                </Button>
-              </Stack>
-
-              <Collapse in={showStats} timeout={220} unmountOnExit>
+              <Collapse
+                in={showStats}
+                timeout={220}
+                unmountOnExit
+                onEntered={handleStatsEntered}
+              >
                 {pokemon ? (
                   <Stack spacing={1.6}>
                     <Box
