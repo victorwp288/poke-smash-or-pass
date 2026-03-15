@@ -44,6 +44,7 @@ type SmashDeckApi = SmashDeckState & {
   rebuildQueue: () => Promise<void>;
   loadNext: () => Promise<void>;
   prependToQueue: (name: string) => void;
+  jumpToPokemon: (name: string) => Promise<void>;
   setCurrentPokemon: (pokemon: Pokemon | null) => void;
 };
 
@@ -193,6 +194,37 @@ export const useSmashDeck = ({
     [setQueue, updateDeckStatus]
   );
 
+  const jumpToPokemon = React.useCallback(
+    async (name: string) => {
+      const key = String(name || "").trim().toLowerCase();
+      if (!key) return;
+
+      const currentName = String(currentPokemon?.rawName || "").trim();
+      const currentKey = currentName
+        .trim()
+        .toLowerCase();
+      if (currentKey === key) return;
+
+      const pokemon = await queryClient.fetchQuery<Pokemon>({
+        queryKey: ["pokemon", key],
+        queryFn: () => fetchPokemon(key)
+      });
+
+      const nextQueue = queueRef.current.filter(
+        (entry) => String(entry || "").trim().toLowerCase() !== key
+      );
+      if (currentName && currentKey !== key) {
+        nextQueue.unshift(currentName);
+      }
+
+      setQueue(nextQueue);
+      updateDeckStatus();
+      preloadImages(collectPokemonImageUrls(pokemon));
+      setCurrentPokemon(pokemon);
+    },
+    [currentPokemon?.rawName, queryClient, setQueue, updateDeckStatus]
+  );
+
   return {
     queue,
     currentPokemon,
@@ -200,6 +232,7 @@ export const useSmashDeck = ({
     rebuildQueue,
     loadNext,
     prependToQueue,
+    jumpToPokemon,
     setCurrentPokemon
   };
 };

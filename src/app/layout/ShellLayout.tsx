@@ -8,6 +8,27 @@ export const ShellLayout = () => {
   const shell = useShell();
 
   React.useEffect(() => {
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+
+    const updateAppHeight = () => {
+      const nextHeight = Math.round(viewport?.height ?? window.innerHeight);
+      root.style.setProperty("--app-height", `${nextHeight}px`);
+    };
+
+    updateAppHeight();
+    window.addEventListener("resize", updateAppHeight);
+    window.addEventListener("orientationchange", updateAppHeight);
+    viewport?.addEventListener("resize", updateAppHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateAppHeight);
+      window.removeEventListener("orientationchange", updateAppHeight);
+      viewport?.removeEventListener("resize", updateAppHeight);
+    };
+  }, []);
+
+  React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "?" || (event.key === "/" && event.shiftKey)) {
         shell.setHelpOpen(true);
@@ -23,7 +44,7 @@ export const ShellLayout = () => {
   return (
     <Box
       sx={{
-        minHeight: "100dvh",
+        minHeight: "var(--app-height, 100dvh)",
         display: "flex",
         flexDirection: "column",
         overflowX: "clip",

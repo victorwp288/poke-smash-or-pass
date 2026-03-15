@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  --app-height: 100dvh;
   --bg-0: #f8f2e6;
   --bg-1: #ffdcb8;
   --bg-2: #ffeeb8;

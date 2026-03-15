@@ -2,6 +2,7 @@ import { useShell } from "@/app/providers/ShellProvider";
 import { ActionRow } from "@/games/smash/components/ActionRow";
 import { FiltersPanel } from "@/games/smash/components/FiltersPanel";
 import { PokemonCard } from "@/games/smash/components/PokemonCard";
+import { PokemonPickerModal } from "@/games/smash/components/PokemonPickerModal";
 import {
   SummaryModal,
   type SmashSummary
@@ -638,6 +639,7 @@ export const SmashPage = () => {
   );
 
   const [panelOpen, setPanelOpen] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
 
   const [swipeStack, setSwipeStack] = React.useState<SwipeRecord[]>([]);
   const [smashStreak, setSmashStreak] = React.useState(0);
@@ -1079,8 +1081,45 @@ export const SmashPage = () => {
     !deck.currentPokemon &&
     deck.statusText.toLowerCase().startsWith("deck empty");
 
+  const handleSelectPokemon = React.useCallback(
+    async (name: string) => {
+      stopCryPlayback();
+      try {
+        await deck.jumpToPokemon(name);
+        setPickerOpen(false);
+      } catch {
+        // Keep the picker open so the user can try another choice.
+      }
+    },
+    [deck, stopCryPlayback]
+  );
+
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTypingTarget =
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if (isTypingTarget) {
+        if (event.key === "Escape") {
+          setPickerOpen(false);
+        }
+        return;
+      }
+
+      if (pickerOpen || panelOpen || summaryOpen || shell.helpOpen) {
+        if (event.key === "Escape") {
+          setPickerOpen(false);
+          setPanelOpen(false);
+          setSummaryOpen(false);
+          shell.setHelpOpen(false);
+        }
+        return;
+      }
+
       if (event.key === "ArrowLeft") {
         swipe("pass");
       }
@@ -1092,6 +1131,7 @@ export const SmashPage = () => {
       }
       if (event.key === "Escape") {
         setPanelOpen(false);
+        setPickerOpen(false);
         setSummaryOpen(false);
         shell.setHelpOpen(false);
       }
@@ -1099,6 +1139,9 @@ export const SmashPage = () => {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [
+    pickerOpen,
+    panelOpen,
+    summaryOpen,
     shell,
     swipeStack.length,
     isAnimatingSwipe,
@@ -1173,7 +1216,7 @@ export const SmashPage = () => {
         <Stack
           sx={{
             minHeight: {
-              xs: "calc(100dvh - env(safe-area-inset-top))",
+              xs: "calc(var(--app-height, 100dvh) - env(safe-area-inset-top))",
               xl: "auto"
             },
             width: "100%",
@@ -1259,6 +1302,7 @@ export const SmashPage = () => {
               onSelectImage={setCurrentImage}
               onCycleImage={handleCycleImage}
               onToggleFavorite={toggleFavorite}
+              onOpenPokemonPicker={() => setPickerOpen(true)}
               onToggleStats={onToggleStats}
               onPlayCry={playCry}
               cryDisabled={!deck.currentPokemon?.cry}
@@ -1352,6 +1396,13 @@ export const SmashPage = () => {
         open={summaryOpen}
         summary={summaryData}
         onClose={() => setSummaryOpen(false)}
+      />
+
+      <PokemonPickerModal
+        open={pickerOpen}
+        currentPokemonName={deck.currentPokemon?.rawName || ""}
+        onClose={() => setPickerOpen(false)}
+        onSelectPokemon={handleSelectPokemon}
       />
     </>
   );

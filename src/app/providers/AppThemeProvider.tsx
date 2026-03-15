@@ -83,7 +83,7 @@ const appTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          minHeight: "100dvh",
+          minHeight: "var(--app-height, 100dvh)",
           overflowX: "hidden",
           backgroundAttachment: "scroll",
           WebkitTextSizeAdjust: "100%",
@@ -155,10 +155,11 @@ export const AppThemeProvider = ({
           },
           body: {
             background: "linear-gradient(180deg, #e8edf3 0%, #dce3ea 100%)",
-            color: theme.palette.text.primary
+            color: theme.palette.text.primary,
+            minHeight: "var(--app-height, 100dvh)"
           },
           "#root": {
-            minHeight: "100dvh"
+            minHeight: "var(--app-height, 100dvh)"
           },
           "::selection": {
             backgroundColor: alpha(theme.palette.primary.main, 0.22)

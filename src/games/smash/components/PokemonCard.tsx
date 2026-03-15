@@ -16,6 +16,7 @@ import GraphicEqOutlinedIcon from "@mui/icons-material/GraphicEqOutlined";
 import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import KeyboardArrowUpRoundedIcon from "@mui/icons-material/KeyboardArrowUpRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import {
   Box,
   Button,
@@ -49,6 +50,7 @@ type PokemonCardProps = {
   onSelectImage: (url: string) => void;
   onCycleImage: (direction: "prev" | "next") => void;
   onToggleFavorite: () => void;
+  onOpenPokemonPicker: () => void;
   onToggleStats: () => void;
   onPlayCry: () => void;
   cryDisabled: boolean;
@@ -302,18 +304,31 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
               <Stack
                 sx={{
                   minWidth: { xs: 180, sm: 220 },
+                  height: "100%",
                   borderRight:
                     stageIndex === stages.length - 1 ? "none" : undefined,
                   borderColor: "divider"
                 }}
               >
-                {stage.flatMap((entry) =>
-                  splitEvolutionEntryVariants(entry).map(
-                    (variant, variantIdx) => {
-                      const isVariantLabel = variant.label !== entry.label;
-                      const isCurrent =
-                        entry.name === pokemon.rawName && !isVariantLabel;
-                      return (
+                {stage.map((entry, entryIndex) => {
+                  const variants = splitEvolutionEntryVariants(entry);
+                  const isCurrentEntry = entry.name === pokemon.rawName;
+
+                  return (
+                    <Box
+                      key={`${entry.name}-${stageIndex}`}
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        flex: stage.length === 1 ? 1 : undefined,
+                        borderLeft: isCurrentEntry
+                          ? `3px solid ${theme.palette.primary.main}`
+                          : "3px solid transparent",
+                        borderTop:
+                          entryIndex > 0 ? "1px solid rgba(16, 24, 40, 0.14)" : 0
+                      }}
+                    >
+                      {variants.map((variant, variantIdx) => (
                         <Box
                           key={`${entry.name}-${variant.label}-${stageIndex}`}
                           sx={{
@@ -322,10 +337,7 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                             borderTop:
                               variantIdx > 0
                                 ? "1px solid rgba(16, 24, 40, 0.14)"
-                                : 0,
-                            borderLeft: isCurrent
-                              ? `3px solid ${theme.palette.primary.main}`
-                              : "3px solid transparent"
+                                : 0
                           }}
                         >
                           <Stack spacing={0.75}>
@@ -434,10 +446,10 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                             ) : null}
                           </Stack>
                         </Box>
-                      );
-                    }
-                  )
-                )}
+                      ))}
+                    </Box>
+                  );
+                })}
               </Stack>
             </React.Fragment>
           ))}
@@ -559,6 +571,7 @@ export const PokemonCard = ({
   onSelectImage,
   onCycleImage,
   onToggleFavorite,
+  onOpenPokemonPicker,
   onToggleStats,
   onPlayCry,
   cryDisabled,
@@ -726,6 +739,18 @@ export const PokemonCard = ({
                     ) : (
                       <FavoriteBorderRoundedIcon />
                     )}
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Open Pokemon navigator">
+                  <IconButton
+                    onClick={(event) => {
+                      stopPointer(event);
+                      onOpenPokemonPicker();
+                    }}
+                    onPointerDown={stopPointer}
+                    aria-label="Open Pokemon navigator"
+                  >
+                    <SearchRoundedIcon />
                   </IconButton>
                 </Tooltip>
                 <Tooltip

@@ -12,8 +12,15 @@ import { capitalize, normalizeInlineText } from "@/lib/text";
 const abilityEffectCache = new Map<string, string>();
 const evolutionChainCache = new Map<string, EvolutionStages>();
 const genRosterCache = new Map<number, string[]>();
+const genRosterEntryCache = new Map<number, GenerationRosterEntry[]>();
 const typeIndexCache = new Map<PokemonTypeName, Set<string>>();
 const pokemonTypeCache = new Map<string, PokemonTypeName[]>();
+
+export type GenerationRosterEntry = {
+  id: number | null;
+  name: string;
+  generation: number;
+};
 
 const chooseFlavorText = (entries: any[]) => {
   const english = (Array.isArray(entries) ? entries : []).filter(
@@ -135,6 +142,11 @@ const getGenerationFromId = (id: number) => {
   if (id >= 810 && id <= 905) return 8;
   if (id >= 906 && id <= 1025) return 9;
   return null;
+};
+
+const getResourceId = (resourceUrl: unknown) => {
+  const match = String(resourceUrl || "").match(/\/(\d+)\/?$/);
+  return match ? Number(match[1]) : null;
 };
 
 const setPokemonTypeCache = (name: string | undefined, typeNames: PokemonTypeName[]) => {
@@ -266,16 +278,50 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
   };
 };
 
+export const fetchGenerationRosterEntries = async (
+  genId: number
+): Promise<GenerationRosterEntry[]> => {
+  if (genRosterEntryCache.has(genId)) return genRosterEntryCache.get(genId)!;
+  const generation = await fetchJson<any>(`generation/${genId}`);
+  const entries = Array.from(
+    new Map(
+      (generation?.pokemon_species || [])
+        .map((entry: any) => {
+          const name = String(entry?.name || "");
+          if (!name) return null;
+          return [
+            name,
+            {
+              id: getResourceId(entry?.url),
+              name,
+              generation: genId
+            } satisfies GenerationRosterEntry
+          ] as const;
+        })
+        .filter(Boolean) as Array<readonly [string, GenerationRosterEntry]>
+    ).values()
+  ).sort((a, b) => {
+    const idOrder =
+      (Number.isFinite(a.id) ? Number(a.id) : Number.MAX_SAFE_INTEGER) -
+      (Number.isFinite(b.id) ? Number(b.id) : Number.MAX_SAFE_INTEGER);
+    if (idOrder !== 0) return idOrder;
+    return a.name.localeCompare(b.name);
+  });
+
+  genRosterEntryCache.set(genId, entries);
+  genRosterCache.set(
+    genId,
+    entries.map((entry) => entry.name)
+  );
+  return entries;
+};
+
 export const fetchGenerationRoster = async (genId: number): Promise<string[]> => {
   if (genRosterCache.has(genId)) return genRosterCache.get(genId)!;
-  const generation = await fetchJson<any>(`generation/${genId}`);
-  const names: string[] = (generation?.pokemon_species || [])
-    .map((entry: any) => String(entry?.name || ""))
-    .filter((name: string) => Boolean(name));
-
-  const uniqueNames = Array.from(new Set(names));
-  genRosterCache.set(genId, uniqueNames);
-  return uniqueNames;
+  const entries = await fetchGenerationRosterEntries(genId);
+  const names = entries.map((entry) => entry.name);
+  genRosterCache.set(genId, names);
+  return names;
 };
 
 export const fetchTypeIndex = async (type: PokemonTypeName): Promise<Set<string>> => {
