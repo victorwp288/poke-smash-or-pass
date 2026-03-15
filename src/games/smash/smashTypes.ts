@@ -17,6 +17,7 @@ export type SmashFiltersStorage = {
 };
 
 export type SmashOptionsStorage = {
+  smashPassMode: boolean;
   autoReveal: boolean;
   shinyMode: boolean;
   dailyDeck: boolean;
@@ -30,4 +31,3 @@ export type HistoryStackEntry = {
   pokemonName: string;
   direction: SwipeDirection;
 };
-

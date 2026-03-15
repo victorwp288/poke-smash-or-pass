@@ -267,6 +267,17 @@ export const FiltersPanel = ({
             <FormControlLabel
               control={
                 <Switch
+                  checked={options.smashPassMode}
+                  onChange={(event) =>
+                    onChangeOption("smashPassMode", event.target.checked)
+                  }
+                />
+              }
+              label="Smash or pass mode"
+            />
+            <FormControlLabel
+              control={
+                <Switch
                   checked={options.autoReveal}
                   onChange={(event) =>
                     onChangeOption("autoReveal", event.target.checked)

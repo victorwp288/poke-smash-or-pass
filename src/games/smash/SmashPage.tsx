@@ -220,13 +220,24 @@ const drawRoundedRect = (
   ctx.closePath();
 };
 
-const buildSmashHelpBody = () => (
+const buildSmashHelpBody = (smashPassMode: boolean) => (
   <Stack spacing={1.2}>
     {[
-      ["Swipe", "Drag left or right"],
-      ["Keys", "Left = Pass, Right = Smash"],
+      [
+        "Swipe",
+        smashPassMode ? "Drag left or right" : "Turn on Smash or Pass mode"
+      ],
+      [
+        "Keys",
+        smashPassMode
+          ? "Left = Pass, Right = Smash"
+          : "Voting keys return with Smash or Pass mode"
+      ],
       ["Undo", "Cmd/Ctrl + Z"],
-      ["Shuffle", "Swipe up on mobile"],
+      [
+        "Shuffle",
+        smashPassMode ? "Center button or swipe up on mobile" : "Center button"
+      ],
       ["Peek", "Show or hide stats"]
     ].map(([label, value]) => (
       <Stack
@@ -707,9 +718,14 @@ export const SmashPage = () => {
       // ignore
     }
     shell.setHeader({ title: "SmashDex", category: "Smash / Pass" });
-    shell.setHelp({ title: "Controls", body: buildSmashHelpBody() });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [shell]);
+
+  React.useEffect(() => {
+    shell.setHelp({
+      title: "Controls",
+      body: buildSmashHelpBody(options.smashPassMode)
+    });
+  }, [options.smashPassMode, shell]);
 
   const badges = React.useMemo(
     () =>
@@ -960,6 +976,7 @@ export const SmashPage = () => {
 
   const swipe = (direction: SwipeDirection) => {
     if (!deck.currentPokemon) return;
+    if (!options.smashPassMode) return;
     if (isAnimatingSwipe || isShuffling) return;
     stopCryPlayback();
     setForcedSwipeStatus(direction);
@@ -1047,16 +1064,18 @@ export const SmashPage = () => {
   };
 
   const swipeApi = useSwipeCard({
-    disabled: isAnimatingSwipe || isShuffling || !deck.currentPokemon,
+    disabled:
+      isAnimatingSwipe ||
+      isShuffling ||
+      !deck.currentPokemon ||
+      !options.smashPassMode,
     isShuffling,
     onSwipe: swipe,
     onShuffle: shuffleDeck,
     shouldIgnoreEvent: (target) =>
       target instanceof Element &&
       Boolean(
-        target.closest(
-          "button, input, label, [data-card-swipe-ignore='true']"
-        )
+        target.closest("button, input, label, [data-card-swipe-ignore='true']")
       )
   });
 
@@ -1120,10 +1139,10 @@ export const SmashPage = () => {
         return;
       }
 
-      if (event.key === "ArrowLeft") {
+      if (options.smashPassMode && event.key === "ArrowLeft") {
         swipe("pass");
       }
-      if (event.key === "ArrowRight") {
+      if (options.smashPassMode && event.key === "ArrowRight") {
         swipe("smash");
       }
       if (event.key.toLowerCase() === "z" && (event.metaKey || event.ctrlKey)) {
@@ -1146,6 +1165,7 @@ export const SmashPage = () => {
     swipeStack.length,
     isAnimatingSwipe,
     isShuffling,
+    options.smashPassMode,
     deck.currentPokemon?.rawName,
     gallery,
     currentImage
@@ -1314,6 +1334,7 @@ export const SmashPage = () => {
           <ActionRow
             disabled={!deck.currentPokemon || isAnimatingSwipe || isShuffling}
             isShuffling={isShuffling}
+            votingEnabled={options.smashPassMode}
             onPass={() => swipe("pass")}
             onSmash={() => swipe("smash")}
             onShuffle={shuffleDeck}
@@ -1330,9 +1351,9 @@ export const SmashPage = () => {
                 justifyContent="space-between"
               >
                 <Typography variant="body2" color="text.secondary">
-                  Tip: swipe left or right to vote, tap the art to cycle images,
-                  and use the new control drawer when you want filters, history,
-                  or exports.
+                  {options.smashPassMode
+                    ? "Tip: swipe left or right to vote, tap the art to cycle images, and use the control drawer when you want filters, history, or exports."
+                    : "Tip: use this as a field guide while Smash or Pass mode is off. You can still cycle the art, save favorites, and shuffle into a new pick whenever you want."}
                 </Typography>
                 <Button
                   color="secondary"

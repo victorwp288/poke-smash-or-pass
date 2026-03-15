@@ -303,7 +303,10 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
               ) : null}
               <Stack
                 sx={{
-                  minWidth: { xs: 180, sm: 220 },
+                  width:
+                    stage.length === 1 ? "fit-content" : { xs: 180, sm: 220 },
+                  minWidth:
+                    stage.length === 1 ? "fit-content" : { xs: 180, sm: 220 },
                   height: "100%",
                   borderRight:
                     stageIndex === stages.length - 1 ? "none" : undefined,
@@ -325,7 +328,9 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                           ? `3px solid ${theme.palette.primary.main}`
                           : "3px solid transparent",
                         borderTop:
-                          entryIndex > 0 ? "1px solid rgba(16, 24, 40, 0.14)" : 0
+                          entryIndex > 0
+                            ? "1px solid rgba(16, 24, 40, 0.14)"
+                            : 0
                       }}
                     >
                       {variants.map((variant, variantIdx) => (
@@ -366,8 +371,7 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                                 >
                                   {variant.label}
                                 </Typography>
-                                {entry.isLaterGenEvolution &&
-                                entry.generation ? (
+                                {entry.generation ? (
                                   <Typography
                                     variant="caption"
                                     color="text.secondary"
@@ -390,10 +394,9 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                             ) : null}
                             {variant.methodLabels.length ? (
                               <Stack
-                                direction="row"
+                                direction="column"
                                 spacing={0.5}
-                                flexWrap="wrap"
-                                useFlexGap
+                                alignItems="flex-start"
                                 sx={{ minWidth: 0 }}
                               >
                                 {variant.methodLabels.map((methodLabel) => {
@@ -778,38 +781,6 @@ export const PokemonCard = ({
                     <SearchRoundedIcon />
                   </IconButton>
                 </Tooltip>
-                <Tooltip
-                  title={
-                    cryDisabled
-                      ? "No cry available"
-                      : cryPlaying
-                        ? "Playing cry"
-                        : "Play cry"
-                  }
-                >
-                  <span>
-                    <IconButton
-                      color={cryPlaying ? "secondary" : "default"}
-                      disabled={cryDisabled}
-                      onClick={(event) => {
-                        stopPointer(event);
-                        onPlayCry();
-                      }}
-                      onPointerDown={stopPointer}
-                      aria-label={
-                        cryDisabled
-                          ? "No cry available for this Pokemon"
-                          : "Play Pokemon cry"
-                      }
-                    >
-                      {cryPlaying ? (
-                        <GraphicEqRoundedIcon />
-                      ) : (
-                        <GraphicEqOutlinedIcon />
-                      )}
-                    </IconButton>
-                  </span>
-                </Tooltip>
               </Stack>
             </Stack>
 
@@ -930,21 +901,64 @@ export const PokemonCard = ({
                   direction="row"
                   spacing={1}
                   justifyContent="space-between"
-                  alignItems="flex-start"
+                  alignItems="center"
                   sx={{ minWidth: 0 }}
                 >
-                  <div style={{ minWidth: 0, flex: 1 }}>
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    alignItems="center"
+                    sx={{ minWidth: 0, flex: 1, pr: 1 }}
+                  >
                     <Typography
                       variant="h2"
                       sx={{
                         fontSize: { xs: "1.7rem", md: "2rem" },
                         overflowWrap: "anywhere",
-                        mb: 1
+                        minWidth: 0,
+                        flex: "0 1 auto",
+                        maxWidth: "100%"
                       }}
                     >
                       {pokemon?.name || emptyTitle || "Loading…"}
                     </Typography>
-                  </div>
+                    {pokemon ? (
+                      <Tooltip
+                        title={
+                          cryDisabled
+                            ? "No cry available"
+                            : cryPlaying
+                              ? "Playing cry"
+                              : "Play cry"
+                        }
+                      >
+                        <span>
+                          <IconButton
+                            size="small"
+                            color={cryPlaying ? "secondary" : "default"}
+                            disabled={cryDisabled}
+                            onClick={(event) => {
+                              stopPointer(event);
+                              onPlayCry();
+                            }}
+                            onPointerDown={stopPointer}
+                            aria-label={
+                              cryDisabled
+                                ? "No cry available for this Pokemon"
+                                : "Play Pokemon cry"
+                            }
+                            sx={{ flexShrink: 0 }}
+                          >
+                            {cryPlaying ? (
+                              <GraphicEqRoundedIcon />
+                            ) : (
+                              <GraphicEqOutlinedIcon />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                  </Stack>
                   {pokemon ? (
                     <Button
                       variant="text"
@@ -960,14 +974,13 @@ export const PokemonCard = ({
                       onClick={handleStatsToggle}
                       sx={{
                         flexShrink: 0,
-                        alignSelf: "flex-start",
+                        alignSelf: "center",
                         minWidth: 0,
                         px: 0.75,
                         py: 0.25,
                         fontSize: "0.73rem",
                         letterSpacing: 0.15,
-                        opacity: 0.74,
-                        mt: 0.25
+                        opacity: 0.74
                       }}
                     >
                       {showStats ? "Hide stats" : "Peek stats"}

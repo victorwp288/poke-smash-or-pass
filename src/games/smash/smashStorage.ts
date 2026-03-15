@@ -20,6 +20,7 @@ export const defaultFilters = (): SmashFiltersStorage => ({
 });
 
 export const defaultOptions = (): SmashOptionsStorage => ({
+  smashPassMode: true,
   autoReveal: true,
   shinyMode: false,
   dailyDeck: false,
@@ -116,9 +117,12 @@ export const parseOptions = (raw: unknown): SmashOptionsStorage => {
   if (!raw || typeof raw !== "object") return defaultOptions();
   const fallback = defaultOptions();
   const readBool = (key: keyof SmashOptionsStorage) =>
-    typeof (raw as any)[key] === "boolean" ? Boolean((raw as any)[key]) : fallback[key];
+    typeof (raw as any)[key] === "boolean"
+      ? Boolean((raw as any)[key])
+      : fallback[key];
 
   return {
+    smashPassMode: readBool("smashPassMode"),
     autoReveal: readBool("autoReveal"),
     shinyMode: readBool("shinyMode"),
     dailyDeck: readBool("dailyDeck"),
@@ -126,4 +130,3 @@ export const parseOptions = (raw: unknown): SmashOptionsStorage => {
     keepHistory: readBool("keepHistory")
   };
 };
-
