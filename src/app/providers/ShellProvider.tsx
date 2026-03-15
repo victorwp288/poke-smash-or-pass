@@ -29,7 +29,7 @@ export const ShellProvider = ({ children }: { children: React.ReactNode }) => {
   const [status, setStatus] = React.useState("Ready");
   const [header, setHeader] = React.useState<ShellHeader>({
     title: "SmashDex",
-    category: "Pokemon Arcade"
+    category: "Smash / Pass"
   });
   const [scoreboard, setScoreboard] = React.useState<React.ReactNode>(null);
   const [help, setHelp] = React.useState<ShellHelp>({
@@ -37,12 +37,16 @@ export const ShellProvider = ({ children }: { children: React.ReactNode }) => {
     body: (
       <div className="grid gap-2 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold">Navigate</span>
-          <span className="text-muted-foreground">Use the tabs</span>
+          <span className="font-semibold">Swipe</span>
+          <span className="text-muted-foreground">
+            Left = Pass · Right = Smash
+          </span>
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="font-semibold">PWA</span>
-          <span className="text-muted-foreground">Install from browser menu</span>
+          <span className="text-muted-foreground">
+            Install from browser menu
+          </span>
         </div>
       </div>
     )
@@ -65,7 +69,9 @@ export const ShellProvider = ({ children }: { children: React.ReactNode }) => {
     [status, header, scoreboard, help, helpOpen]
   );
 
-  return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>;
+  return (
+    <ShellContext.Provider value={value}>{children}</ShellContext.Provider>
+  );
 };
 
 export const useShell = () => {

@@ -13,6 +13,7 @@ const abilityEffectCache = new Map<string, string>();
 const evolutionChainCache = new Map<string, EvolutionStages>();
 const genRosterCache = new Map<number, string[]>();
 const typeIndexCache = new Map<PokemonTypeName, Set<string>>();
+const pokemonTypeCache = new Map<string, PokemonTypeName[]>();
 
 const chooseFlavorText = (entries: any[]) => {
   const english = (Array.isArray(entries) ? entries : []).filter(
@@ -55,6 +56,13 @@ const normalizeSprites = (sprites: any) => {
     gallery: Array.from(new Set(gallery)).slice(0, 6)
   };
 };
+
+const normalizeTypeNames = (types: any): PokemonTypeName[] =>
+  (Array.isArray(types) ? types : [])
+    .slice()
+    .sort((a: any, b: any) => (a?.slot || 0) - (b?.slot || 0))
+    .map((entry: any) => entry?.type?.name)
+    .filter(Boolean);
 
 const getAbilityDescription = (abilityData: any) => {
   const entries = Array.isArray(abilityData?.effect_entries)
@@ -129,6 +137,28 @@ const getGenerationFromId = (id: number) => {
   return null;
 };
 
+const setPokemonTypeCache = (name: string | undefined, typeNames: PokemonTypeName[]) => {
+  const cacheKey = String(name || "").trim().toLowerCase();
+  if (!cacheKey) return;
+  pokemonTypeCache.set(cacheKey, [...typeNames]);
+};
+
+const loadPokemonTypeNames = async (name: string | undefined) => {
+  const cacheKey = String(name || "").trim().toLowerCase();
+  if (!cacheKey) return [] as PokemonTypeName[];
+  if (pokemonTypeCache.has(cacheKey)) return pokemonTypeCache.get(cacheKey)!;
+
+  try {
+    const payload = await fetchJson<any>(`pokemon/${cacheKey}`);
+    const typeNames = normalizeTypeNames(payload?.types || []);
+    pokemonTypeCache.set(cacheKey, typeNames);
+    return typeNames;
+  } catch {
+    pokemonTypeCache.set(cacheKey, []);
+    return [];
+  }
+};
+
 const loadEvolutionLine = async (chainUrl: string | undefined) => {
   if (!chainUrl) return [];
   if (evolutionChainCache.has(chainUrl)) return evolutionChainCache.get(chainUrl)!;
@@ -136,6 +166,24 @@ const loadEvolutionLine = async (chainUrl: string | undefined) => {
   try {
     const chain = await fetchJson<any>(chainUrl);
     const stages = normalizeEvolutionChain(chain);
+    const uniqueNames = Array.from(
+      new Set(stages.flatMap((stage) => stage.map((entry) => entry.name)).filter(Boolean))
+    );
+
+    if (uniqueNames.length) {
+      const typeEntries = await Promise.all(
+        uniqueNames.map(async (name) => [name, await loadPokemonTypeNames(name)] as const)
+      );
+      const typeMap = new Map<string, PokemonTypeName[]>(
+        typeEntries.map(([name, typeNames]) => [name.toLowerCase(), typeNames])
+      );
+      stages.forEach((stage) => {
+        stage.forEach((entry) => {
+          entry.typeNames = typeMap.get(entry.name.toLowerCase()) || [];
+        });
+      });
+    }
+
     evolutionChainCache.set(chainUrl, stages);
     return stages;
   } catch {
@@ -151,6 +199,9 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
     fetchJson<any>(`pokemon-species/${key}`)
   ]);
 
+  const typeNames = normalizeTypeNames(details?.types || []);
+  setPokemonTypeCache(details?.name || key, typeNames);
+  setPokemonTypeCache(details?.species?.name || details?.name || key, typeNames);
   const evolution = await loadEvolutionLine(species?.evolution_chain?.url);
   const abilities: PokemonAbility[] = (
     await Promise.all(
@@ -172,11 +223,6 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
   ).filter(Boolean) as PokemonAbility[];
 
   const generation = getGenerationFromId(Number(details?.id) || 0);
-  const typeNames: PokemonTypeName[] = (details?.types || [])
-    .slice()
-    .sort((a: any, b: any) => (a?.slot || 0) - (b?.slot || 0))
-    .map((entry: any) => entry?.type?.name)
-    .filter(Boolean);
 
   const baseStatTotal = (details?.stats || []).reduce(
     (sum: number, stat: any) => sum + (Number(stat?.base_stat) || 0),

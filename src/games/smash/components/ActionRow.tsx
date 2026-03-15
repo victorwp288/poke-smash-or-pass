@@ -1,49 +1,93 @@
-import React from "react";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
+import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
+import { Box, Button, Paper } from "@mui/material";
 
 export const ActionRow = ({
   disabled,
   isShuffling,
-  undoCount,
   onPass,
   onSmash,
-  onUndo,
   onShuffle
 }: {
   disabled: boolean;
   isShuffling: boolean;
-  undoCount: number;
   onPass: () => void;
   onSmash: () => void;
-  onUndo: () => void;
   onShuffle: () => void;
 }) => {
-  const undoLabel = undoCount ? `Undo (${undoCount})` : "Undo";
-
   return (
-    <div className="actions">
-      <button className="action pass" type="button" onClick={onPass} disabled={disabled}>
-        Pass
-      </button>
-      <button
-        className="action undo"
-        type="button"
-        onClick={onUndo}
-        disabled={disabled || undoCount === 0}
+    <Paper
+      variant="outlined"
+      sx={{
+        position: { xs: "sticky", md: "static" },
+        bottom: { xs: "env(safe-area-inset-bottom)", md: "auto" },
+        zIndex: 8,
+        mt: 0,
+        p: 0,
+        overflow: "hidden",
+        borderRadius: 0,
+        bgcolor: "background.paper",
+        borderColor: "divider",
+        boxShadow: "none"
+      }}
+    >
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "repeat(3, minmax(0, 1fr))",
+            sm: "repeat(3, minmax(0, 1fr))"
+          },
+          gap: 0,
+          "& > *": {
+            borderRadius: 0,
+            minHeight: { xs: 52, sm: 56 }
+          }
+        }}
       >
-        {undoLabel}
-      </button>
-      <button
-        className="action shuffle"
-        type="button"
-        onClick={onShuffle}
-        disabled={disabled || isShuffling}
-      >
-        {isShuffling ? "Shuffling…" : "Shuffle"}
-      </button>
-      <button className="action smash" type="button" onClick={onSmash} disabled={disabled}>
-        Smash
-      </button>
-    </div>
+        <Button
+          color="error"
+          variant="contained"
+          startIcon={<CloseRoundedIcon />}
+          onClick={onPass}
+          disabled={disabled}
+          sx={{
+            width: "100%",
+            borderRight: "1px solid",
+            borderColor: "divider"
+          }}
+        >
+          Pass
+        </Button>
+        <Button
+          color="secondary"
+          variant="outlined"
+          startIcon={<ShuffleRoundedIcon />}
+          onClick={onShuffle}
+          disabled={disabled || isShuffling}
+          sx={{
+            width: "100%",
+            borderRight: "1px solid",
+            borderColor: "divider"
+          }}
+        >
+          {isShuffling ? "Shuffling" : "Shuffle"}
+        </Button>
+        <Button
+          color="success"
+          variant="contained"
+          startIcon={<FavoriteRoundedIcon />}
+          onClick={onSmash}
+          disabled={disabled}
+          sx={{
+            width: "100%",
+            borderColor: "divider"
+          }}
+        >
+          Smash
+        </Button>
+      </Box>
+    </Paper>
   );
 };
-

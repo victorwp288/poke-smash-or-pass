@@ -25,6 +25,7 @@ export type EvolutionEntry = {
   label: string;
   id: number | null;
   sprite: string;
+  typeNames: PokemonTypeName[];
   generation: number | null;
   parentName: string | null;
   parentGeneration: number | null;

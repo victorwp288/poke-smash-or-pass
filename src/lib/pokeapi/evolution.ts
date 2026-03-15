@@ -178,6 +178,7 @@ export const buildEvolutionStages = (root: EvolutionChainNode | undefined) => {
         label: capitalize(speciesName),
         id,
         sprite: getSpeciesSpriteUrl(id),
+        typeNames: [],
         generation,
         parentName: parent?.name || null,
         parentGeneration,

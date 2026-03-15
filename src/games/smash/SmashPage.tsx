@@ -1,20 +1,20 @@
-import React from "react";
 import { useShell } from "@/app/providers/ShellProvider";
-import { downloadDataUrl, downloadFile } from "@/lib/files";
-import { useLocalStorageState } from "@/lib/storage";
-import { capitalize } from "@/lib/text";
-import { cn } from "@/lib/utils";
-import type { Pokemon } from "@/lib/pokeapi/types";
-import { TYPE_LIST, type PokemonTypeName } from "@/lib/typeChart";
+import { ActionRow } from "@/games/smash/components/ActionRow";
+import { FiltersPanel } from "@/games/smash/components/FiltersPanel";
+import { PokemonCard } from "@/games/smash/components/PokemonCard";
 import {
-  defaultFilters,
-  defaultHistory,
-  defaultOptions,
+  SummaryModal,
+  type SmashSummary
+} from "@/games/smash/components/SummaryModal";
+import {
   FAVORITES_KEY,
   FILTER_KEY,
   MODE_KEY,
   OPTIONS_KEY,
   STORAGE_KEY,
+  defaultFilters,
+  defaultHistory,
+  defaultOptions,
   parseFavorites,
   parseFilters,
   parseHistory,
@@ -28,18 +28,35 @@ import type {
 } from "@/games/smash/smashTypes";
 import { useSmashDeck } from "@/games/smash/useSmashDeck";
 import { useSwipeCard } from "@/games/smash/useSwipeCard";
-import { PokemonCard } from "@/games/smash/components/PokemonCard";
-import { ActionRow } from "@/games/smash/components/ActionRow";
-import { QuickFilterBar } from "@/games/smash/components/QuickFilterBar";
-import { FiltersPanel } from "@/games/smash/components/FiltersPanel";
-import { MobileHub } from "@/games/smash/components/MobileHub";
-import { SummaryModal, type SmashSummary } from "@/games/smash/components/SummaryModal";
+import { downloadDataUrl, downloadFile } from "@/lib/files";
+import type { Pokemon } from "@/lib/pokeapi/types";
+import { useLocalStorageState } from "@/lib/storage";
+import { capitalize } from "@/lib/text";
+import { TYPE_LIST, type PokemonTypeName } from "@/lib/typeChart";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
+import FilterAltRoundedIcon from "@mui/icons-material/FilterAltRounded";
+import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
+import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
+import TravelExploreRoundedIcon from "@mui/icons-material/TravelExploreRounded";
+import UndoRoundedIcon from "@mui/icons-material/UndoRounded";
+import {
+  Box,
+  Button,
+  Chip,
+  ClickAwayListener,
+  Paper,
+  Stack,
+  Typography,
+  useMediaQuery,
+  useTheme
+} from "@mui/material";
+import React from "react";
 
 const SUMMARY_INTERVAL = 20;
 const SWIPE_ANIMATION_MS = 320;
 const SHUFFLE_ANIMATION_MS = 520;
 const GEN_TOTAL = 9;
-const TYPE_TOTAL = TYPE_LIST.length;
 
 type SwipeRecord = {
   pokemon: Pokemon;
@@ -203,47 +220,400 @@ const drawRoundedRect = (
 };
 
 const buildSmashHelpBody = () => (
-  <div className="grid gap-2 text-sm">
-    <div className="flex items-center justify-between gap-3">
-      <span className="font-semibold">Swipe</span>
-      <span className="text-muted-foreground">Drag card left/right</span>
-    </div>
-    <div className="flex items-center justify-between gap-3">
-      <span className="font-semibold">Keys</span>
-      <span className="text-muted-foreground">← Pass · → Smash</span>
-    </div>
-    <div className="flex items-center justify-between gap-3">
-      <span className="font-semibold">Undo</span>
-      <span className="text-muted-foreground">Cmd/Ctrl + Z</span>
-    </div>
-    <div className="flex items-center justify-between gap-3">
-      <span className="font-semibold">Shuffle</span>
-      <span className="text-muted-foreground">Swipe up (mobile)</span>
-    </div>
-    <div className="flex items-center justify-between gap-3">
-      <span className="font-semibold">Stats</span>
-      <span className="text-muted-foreground">Peek/Hide button</span>
-    </div>
-  </div>
+  <Stack spacing={1.2}>
+    {[
+      ["Swipe", "Drag left or right"],
+      ["Keys", "Left = Pass, Right = Smash"],
+      ["Undo", "Cmd/Ctrl + Z"],
+      ["Shuffle", "Swipe up on mobile"],
+      ["Peek", "Show or hide stats"]
+    ].map(([label, value]) => (
+      <Stack
+        key={label}
+        direction="row"
+        justifyContent="space-between"
+        spacing={2}
+        alignItems="center"
+      >
+        <Typography variant="body2" fontWeight={700}>
+          {label}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {value}
+        </Typography>
+      </Stack>
+    ))}
+  </Stack>
 );
+
+const CornerPokeballMenu = ({
+  undoCount,
+  undoDisabled,
+  onUndo,
+  onOpenFilters
+}: {
+  undoCount: number;
+  undoDisabled: boolean;
+  onUndo: () => void;
+  onOpenFilters: () => void;
+}) => {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <ClickAwayListener onClickAway={() => setOpen(false)}>
+      <Box
+        sx={{
+          position: "fixed",
+          top: "max(env(safe-area-inset-top), 12px)",
+          left: "max(env(safe-area-inset-left), 12px)",
+          zIndex: 999
+        }}
+      >
+        <Box sx={{ position: "relative" }}>
+          {open ? (
+            <Paper
+              id="smash-corner-menu"
+              variant="outlined"
+              sx={{
+                position: "absolute",
+                top: "calc(100% + 10px)",
+                left: 0,
+                minWidth: 120,
+                p: 1,
+                borderRadius: 0,
+                bgcolor: "background.paper",
+                borderColor: "divider",
+                boxShadow: "0 16px 32px rgba(16, 24, 40, 0.18)"
+              }}
+            >
+              <Stack spacing={0.75}>
+                <Button
+                  variant="outlined"
+                  startIcon={<UndoRoundedIcon />}
+                  disabled={undoDisabled}
+                  onClick={() => {
+                    onUndo();
+                    setOpen(false);
+                  }}
+                  sx={{ justifyContent: "flex-start" }}
+                >
+                  {undoCount ? `Undo ${undoCount}` : "Undo"}
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<FilterAltRoundedIcon />}
+                  onClick={() => {
+                    onOpenFilters();
+                    setOpen(false);
+                  }}
+                  sx={{ justifyContent: "flex-start" }}
+                >
+                  Filters
+                </Button>
+              </Stack>
+            </Paper>
+          ) : null}
+
+          <Box
+            component="button"
+            type="button"
+            aria-label="Open deck tools"
+            aria-expanded={open}
+            aria-controls="smash-corner-menu"
+            onClick={() => setOpen((prev) => !prev)}
+            sx={{
+              width: { xs: 40, sm: 60 },
+              height: { xs: 40, sm: 60 },
+              borderRadius: "50%",
+              border: "3px solid #141414",
+              padding: 0,
+              cursor: "pointer",
+              position: "relative",
+              display: "block",
+              background:
+                "linear-gradient(180deg, #e64b3b 0 46%, #121212 46% 56%, #f6f1e8 56% 100%)",
+              boxShadow:
+                "0 14px 28px rgba(16, 24, 40, 0.24), inset 0 2px 0 rgba(255,255,255,0.4)",
+              transition: "transform 160ms ease, box-shadow 160ms ease",
+              "&::before": {
+                content: '""',
+                position: "absolute",
+                inset: "50% auto auto 50%",
+                width: 18,
+                height: 18,
+                transform: "translate(-50%, -50%)",
+                borderRadius: "50%",
+                border: "3px solid #141414",
+                bgcolor: "#f8f4ec",
+                boxShadow: "0 0 0 4px rgba(255,255,255,0.35)"
+              },
+              "&::after": {
+                content: '""',
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: "100%",
+                height: 6,
+                transform: "translate(-50%, -50%)",
+                bgcolor: "#141414"
+              },
+              "&:hover": {
+                transform: "translateY(-1px) scale(1.02)",
+                boxShadow:
+                  "0 18px 36px rgba(16, 24, 40, 0.28), inset 0 2px 0 rgba(255,255,255,0.42)"
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    </ClickAwayListener>
+  );
+};
+
+const SessionPanel = ({
+  statusText,
+  queueLeft,
+  smashCount,
+  passCount,
+  smashStreak,
+  passStreak,
+  favoritesCount,
+  badges,
+  recentSmash,
+  recentPass
+}: {
+  statusText: string;
+  queueLeft: number;
+  smashCount: number;
+  passCount: number;
+  smashStreak: number;
+  passStreak: number;
+  favoritesCount: number;
+  badges: string[];
+  recentSmash: HistoryEntry[];
+  recentPass: HistoryEntry[];
+}) => {
+  const statCards = [
+    {
+      label: "Deck left",
+      value: queueLeft,
+      icon: <TravelExploreRoundedIcon fontSize="small" />
+    },
+    {
+      label: "Smash",
+      value: smashCount,
+      icon: <FavoriteRoundedIcon fontSize="small" />
+    },
+    {
+      label: "Pass",
+      value: passCount,
+      icon: <HistoryRoundedIcon fontSize="small" />
+    },
+    {
+      label: "Saved",
+      value: favoritesCount,
+      icon: <AutoAwesomeRoundedIcon fontSize="small" />
+    }
+  ];
+
+  return (
+    <Stack spacing={2}>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          borderRadius: 0,
+          bgcolor: "background.paper",
+          borderColor: "divider"
+        }}
+      >
+        <Stack spacing={2}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            spacing={1}
+          >
+            <div>
+              <Typography variant="overline" color="text.secondary">
+                Session pulse
+              </Typography>
+              <Typography variant="h3">Control center</Typography>
+            </div>
+          </Stack>
+
+          <Typography variant="body2" color="text.secondary">
+            {statusText}
+          </Typography>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: 1
+            }}
+          >
+            {statCards.map((item) => (
+              <Paper
+                key={item.label}
+                variant="outlined"
+                sx={{
+                  p: 1.25,
+                  borderRadius: 0,
+                  bgcolor: "background.default"
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Box sx={{ color: "secondary.main" }}>{item.icon}</Box>
+                  <div>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.label}
+                    </Typography>
+                    <Typography variant="body1" fontWeight={700}>
+                      {item.value}
+                    </Typography>
+                  </div>
+                </Stack>
+              </Paper>
+            ))}
+          </Box>
+
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {smashStreak > 0 ? (
+              <Chip color="success" label={`Smash streak ${smashStreak}`} />
+            ) : null}
+            {passStreak > 0 ? (
+              <Chip color="error" label={`Pass streak ${passStreak}`} />
+            ) : null}
+            {!smashStreak && !passStreak ? (
+              <Chip variant="outlined" label="No current streak" />
+            ) : null}
+          </Stack>
+        </Stack>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 0 }}>
+        <Stack spacing={1.25}>
+          <Typography variant="h3">Matchup badges</Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {badges.length ? (
+              badges.map((badge) => (
+                <Chip key={badge} color="primary" label={badge} />
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Your deck personality shows up here after a few rounds.
+              </Typography>
+            )}
+          </Stack>
+        </Stack>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 0 }}>
+        <Stack spacing={1.25}>
+          <Typography variant="h3">Deck rhythm</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Keep the card open as your field guide, save favorites for later,
+            and use the filter drawer to tighten the pool when you want a more
+            curated SmashDex run.
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip color="secondary" label="Save favorites" />
+            <Chip variant="outlined" label="Filter by gen and type" />
+            <Chip variant="outlined" label="Shuffle when the deck gets stale" />
+          </Stack>
+        </Stack>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 0 }}>
+        <Stack spacing={1.25}>
+          <Typography variant="h3">Recent picks</Typography>
+          <Typography variant="subtitle2">Smash list</Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {recentSmash.length ? (
+              recentSmash.map((entry, idx) => (
+                <Chip
+                  key={`${entry.name}-${idx}`}
+                  avatar={
+                    <Box
+                      component="img"
+                      src={entry.thumb}
+                      alt=""
+                      sx={{ width: 24, height: 24 }}
+                    />
+                  }
+                  label={entry.name}
+                  variant="outlined"
+                />
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No smash picks yet.
+              </Typography>
+            )}
+          </Stack>
+          <Typography variant="subtitle2">Pass list</Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {recentPass.length ? (
+              recentPass.map((entry, idx) => (
+                <Chip
+                  key={`${entry.name}-${idx}`}
+                  avatar={
+                    <Box
+                      component="img"
+                      src={entry.thumb}
+                      alt=""
+                      sx={{ width: 24, height: 24 }}
+                    />
+                  }
+                  label={entry.name}
+                  variant="outlined"
+                />
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No passes yet.
+              </Typography>
+            )}
+          </Stack>
+        </Stack>
+      </Paper>
+    </Stack>
+  );
+};
 
 export const SmashPage = () => {
   const shell = useShell();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const initialFilters = React.useMemo(() => defaultFilters(), []);
   const initialOptions = React.useMemo(() => defaultOptions(), []);
   const initialHistory = React.useMemo(() => defaultHistory(), []);
   const initialFavorites = React.useMemo(() => [] as HistoryEntry[], []);
 
-  const [filters, setFilters] = useLocalStorageState(FILTER_KEY, initialFilters, {
-    parse: parseFilters
-  });
-  const [options, setOptions] = useLocalStorageState(OPTIONS_KEY, initialOptions, {
-    parse: parseOptions
-  });
-  const [history, setHistory] = useLocalStorageState(STORAGE_KEY, initialHistory, {
-    parse: parseHistory
-  });
+  const [filters, setFilters] = useLocalStorageState(
+    FILTER_KEY,
+    initialFilters,
+    {
+      parse: parseFilters
+    }
+  );
+  const [options, setOptions] = useLocalStorageState(
+    OPTIONS_KEY,
+    initialOptions,
+    {
+      parse: parseOptions
+    }
+  );
+  const [history, setHistory] = useLocalStorageState(
+    STORAGE_KEY,
+    initialHistory,
+    {
+      parse: parseHistory
+    }
+  );
   const [favorites, setFavorites] = useLocalStorageState(
     FAVORITES_KEY,
     initialFavorites,
@@ -263,17 +633,15 @@ export const SmashPage = () => {
   const [currentImage, setCurrentImage] = React.useState<string | null>(null);
 
   const [summaryOpen, setSummaryOpen] = React.useState(false);
-  const [summaryData, setSummaryData] = React.useState<SmashSummary | null>(null);
+  const [summaryData, setSummaryData] = React.useState<SmashSummary | null>(
+    null
+  );
 
   const [panelOpen, setPanelOpen] = React.useState(false);
-  const [mobileHubOpen, setMobileHubOpen] = React.useState(false);
 
   const [swipeStack, setSwipeStack] = React.useState<SwipeRecord[]>([]);
   const [smashStreak, setSmashStreak] = React.useState(0);
   const [passStreak, setPassStreak] = React.useState(0);
-
-  const mobileHubRef = React.useRef<HTMLDivElement | null>(null);
-  const mobileHubToggleRef = React.useRef<HTMLButtonElement | null>(null);
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [cryPlaying, setCryPlaying] = React.useState(false);
@@ -283,8 +651,9 @@ export const SmashPage = () => {
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
+      audio.onended = null;
+      audio.onerror = null;
     }
-    audioRef.current = null;
     setCryPlaying(false);
   }, []);
 
@@ -292,25 +661,37 @@ export const SmashPage = () => {
     stopCryPlayback();
   }, [deck.currentPokemon?.rawName, stopCryPlayback]);
 
+  React.useEffect(() => {
+    return () => stopCryPlayback();
+  }, [stopCryPlayback]);
+
   const playCry = React.useCallback(async () => {
     const url = deck.currentPokemon?.cry || "";
     if (!url) return;
+
+    let audio = audioRef.current;
+    if (!audio) {
+      audio = new Audio();
+      audio.preload = "auto";
+      audioRef.current = audio;
+    }
+
     stopCryPlayback();
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    setCryPlaying(true);
+    audio = audioRef.current!;
+    audio.crossOrigin = "anonymous";
+    audio.src = url;
+    audio.currentTime = 0;
 
     const cleanup = () => {
-      if (audioRef.current === audio) {
-        audioRef.current = null;
-      }
       setCryPlaying(false);
     };
 
-    audio.addEventListener("ended", cleanup, { once: true });
-    audio.addEventListener("error", cleanup, { once: true });
+    audio.onended = cleanup;
+    audio.onerror = cleanup;
 
     try {
+      audio.load();
+      setCryPlaying(true);
       await audio.play();
     } catch {
       cleanup();
@@ -323,7 +704,7 @@ export const SmashPage = () => {
     } catch {
       // ignore
     }
-    shell.setHeader({ category: "Smash / Pass" });
+    shell.setHeader({ title: "SmashDex", category: "Smash / Pass" });
     shell.setHelp({ title: "Controls", body: buildSmashHelpBody() });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -337,7 +718,13 @@ export const SmashPage = () => {
         typeCounts: (history.typeCounts ?? {}) as Record<string, number>,
         statTotals: (history.statTotals ?? {}) as Record<string, number>
       }),
-    [history.smashCount, history.statTotals, history.typeCounts, passStreak, smashStreak]
+    [
+      history.smashCount,
+      history.statTotals,
+      history.typeCounts,
+      passStreak,
+      smashStreak
+    ]
   );
 
   React.useEffect(() => {
@@ -347,59 +734,19 @@ export const SmashPage = () => {
 
   React.useEffect(() => {
     shell.setScoreboard(
-      <div className="flex items-center gap-2">
-        <div className="score-pill">
-          <span>Smash</span> <span>{history.smashCount}</span> - <span>Pass</span>{" "}
-          <span>{history.passCount}</span>
-        </div>
-        <button
-          ref={mobileHubToggleRef}
-          className="pokeball-toggle"
-          aria-controls="mobileHub"
-          aria-expanded={mobileHubOpen}
-          aria-label="Open controls"
-          type="button"
-          onClick={() => {
-            setPanelOpen(false);
-            setMobileHubOpen((prev) => !prev);
-          }}
-        >
-          <span className="pokeball-toggle-core" aria-hidden="true" />
-        </button>
-      </div>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Chip color="success" label={`Smash ${history.smashCount}`} />
+        <Chip
+          variant="outlined"
+          color="error"
+          label={`Pass ${history.passCount}`}
+        />
+      </Stack>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history.passCount, history.smashCount, mobileHubOpen]);
+  }, [history.passCount, history.smashCount]);
 
   React.useEffect(() => {
-    document.body.classList.toggle("panel-open", panelOpen);
-    return () => {
-      document.body.classList.remove("panel-open");
-    };
-  }, [panelOpen]);
-
-  React.useEffect(() => {
-    document.body.classList.toggle("mobile-hub-open", mobileHubOpen);
-    return () => {
-      document.body.classList.remove("mobile-hub-open");
-    };
-  }, [mobileHubOpen]);
-
-  React.useEffect(() => {
-    if (!mobileHubOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (mobileHubRef.current?.contains(target)) return;
-      if (mobileHubToggleRef.current?.contains(target)) return;
-      setMobileHubOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [mobileHubOpen]);
-
-  React.useEffect(() => {
-    // Rebuild the deck whenever deck-building inputs change.
     void deck.rebuildQueue();
   }, [deck.rebuildQueue]);
 
@@ -411,7 +758,9 @@ export const SmashPage = () => {
       return;
     }
 
-    const baseImage = options.shinyMode ? pokemon.images.shiny : pokemon.images.main;
+    const baseImage = options.shinyMode
+      ? pokemon.images.shiny
+      : pokemon.images.main;
     const nextGallery = pokemon.images.gallery.includes(baseImage)
       ? pokemon.images.gallery
       : [baseImage, ...pokemon.images.gallery];
@@ -460,7 +809,11 @@ export const SmashPage = () => {
     if (!favorites.length) return;
     const header = "name";
     const rows = favorites.map((fav) => `"${fav.name.replace(/"/g, '""')}"`);
-    downloadFile("smashdex-favorites.csv", [header, ...rows].join("\n"), "text/csv");
+    downloadFile(
+      "smashdex-favorites.csv",
+      [header, ...rows].join("\n"),
+      "text/csv"
+    );
   };
 
   const shareMatchCard = async () => {
@@ -473,7 +826,12 @@ export const SmashPage = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    const gradient = ctx.createLinearGradient(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
     gradient.addColorStop(0, "#ffe9c7");
     gradient.addColorStop(1, "#c4f3e8");
     ctx.fillStyle = gradient;
@@ -483,14 +841,20 @@ export const SmashPage = () => {
     ctx.font = "36px Bungee, sans-serif";
     ctx.fillText("SmashDex", 40, 70);
     ctx.font = "18px IBM Plex Sans, sans-serif";
-    ctx.fillText(`Smash ${history.smashCount} · Pass ${history.passCount}`, 40, 105);
+    ctx.fillText(
+      `Smash ${history.smashCount} · Pass ${history.passCount}`,
+      40,
+      105
+    );
 
     const startX = 40;
     const startY = 150;
     const gap = 110;
     const rowGap = 150;
 
-    const images = await Promise.all(items.map((item) => loadImage(item.thumb)));
+    const images = await Promise.all(
+      items.map((item) => loadImage(item.thumb))
+    );
 
     items.forEach((item, index) => {
       const col = index % 4;
@@ -610,7 +974,10 @@ export const SmashPage = () => {
     if (!swipeStack.length) return;
     const last = swipeStack[swipeStack.length - 1];
 
-    if (deck.currentPokemon?.rawName && last.pokemon.rawName !== deck.currentPokemon.rawName) {
+    if (
+      deck.currentPokemon?.rawName &&
+      last.pokemon.rawName !== deck.currentPokemon.rawName
+    ) {
       deck.prependToQueue(deck.currentPokemon.rawName);
     }
 
@@ -668,7 +1035,6 @@ export const SmashPage = () => {
     if (isShuffling) return;
     stopCryPlayback();
     setIsShuffling(true);
-    setMobileHubOpen(false);
     setPanelOpen(false);
     try {
       await new Promise((resolve) => setTimeout(resolve, SHUFFLE_ANIMATION_MS));
@@ -684,7 +1050,8 @@ export const SmashPage = () => {
     onSwipe: swipe,
     onShuffle: shuffleDeck,
     shouldIgnoreEvent: (target) =>
-      target instanceof Element && Boolean(target.closest("button, input, label"))
+      target instanceof Element &&
+      Boolean(target.closest("button, input, label"))
   });
 
   const swipeStatus = forcedSwipeStatus || swipeApi.status;
@@ -704,11 +1071,9 @@ export const SmashPage = () => {
     setCurrentImage(gallery[nextIndex]);
   };
 
-  const selectedGenCount = filters.gens.length;
-  const selectedTypeCount = filters.types.length;
-
   const isDeckEmpty =
-    !deck.currentPokemon && deck.statusText.toLowerCase().startsWith("deck empty");
+    !deck.currentPokemon &&
+    deck.statusText.toLowerCase().startsWith("deck empty");
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -723,14 +1088,21 @@ export const SmashPage = () => {
       }
       if (event.key === "Escape") {
         setPanelOpen(false);
-        setMobileHubOpen(false);
         setSummaryOpen(false);
         shell.setHelpOpen(false);
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [shell, swipeStack.length, isAnimatingSwipe, isShuffling, deck.currentPokemon?.rawName, gallery, currentImage]);
+  }, [
+    shell,
+    swipeStack.length,
+    isAnimatingSwipe,
+    isShuffling,
+    deck.currentPokemon?.rawName,
+    gallery,
+    currentImage
+  ]);
 
   const onToggleGen = (genId: number) => {
     setFilters((prev) => {
@@ -751,7 +1123,10 @@ export const SmashPage = () => {
   };
 
   const onChangeOption = React.useCallback(
-    <K extends keyof SmashOptionsStorage>(key: K, value: SmashOptionsStorage[K]) => {
+    <K extends keyof SmashOptionsStorage>(
+      key: K,
+      value: SmashOptionsStorage[K]
+    ) => {
       setOptions((prev) => ({ ...prev, [key]: value }));
     },
     [setOptions]
@@ -766,79 +1141,180 @@ export const SmashPage = () => {
   };
 
   return (
-    <div className="layout">
-      <section className="deck">
-        <QuickFilterBar
-          genCount={selectedGenCount}
-          genTotal={GEN_TOTAL}
-          typeCount={selectedTypeCount}
-          typeTotal={TYPE_TOTAL}
-          dailyDeck={options.dailyDeck}
-          shinyMode={options.shinyMode}
-          panelOpen={panelOpen}
-          onToggleDailyDeck={() => onChangeOption("dailyDeck", !options.dailyDeck)}
-          onToggleShinyMode={() => onChangeOption("shinyMode", !options.shinyMode)}
-          onOpenFilters={() => {
-            setPanelOpen(true);
-            setMobileHubOpen(false);
-          }}
-        />
+    <>
+      <CornerPokeballMenu
+        undoCount={swipeStack.length}
+        undoDisabled={
+          !deck.currentPokemon ||
+          isAnimatingSwipe ||
+          isShuffling ||
+          swipeStack.length === 0
+        }
+        onUndo={undoLast}
+        onOpenFilters={() => setPanelOpen(true)}
+      />
 
-        <div className="deck-core">
-          <PokemonCard
-            pokemon={deck.currentPokemon}
-            emptyTitle={isDeckEmpty ? "No Pokemon" : undefined}
-            emptyBody={
-              isDeckEmpty ? "Choose more generations to keep swiping." : undefined
-            }
-            isFavorite={isFavorite}
-            showStats={showStats}
-            shinyMode={options.shinyMode}
-            cardShellClassName={cn(isShuffling && "is-shuffling")}
-            swipeStatus={swipeStatus}
-            isDragging={swipeApi.isDragging}
-            transform={swipeApi.transform}
-            currentImage={currentImage}
-            gallery={gallery}
-            onSelectImage={setCurrentImage}
-            onCycleImage={handleCycleImage}
-            onToggleFavorite={toggleFavorite}
-            onToggleStats={onToggleStats}
-            onPlayCry={playCry}
-            cryDisabled={!deck.currentPokemon?.cry}
-            cryPlaying={cryPlaying}
-            pointerHandlers={swipeApi.handlers}
-          />
+      <Box
+        sx={{
+          minHeight: "100%",
+          width: "100%",
+          minWidth: 0,
+          overflowX: { xs: "clip", md: "visible" },
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1.35fr) 360px" },
+          alignItems: "start",
+          gap: 0
+        }}
+      >
+        <Stack
+          sx={{
+            minHeight: {
+              xs: "calc(100dvh - env(safe-area-inset-top))",
+              xl: "auto"
+            },
+            width: "100%",
+            minWidth: 0,
+            flex: 1
+          }}
+        >
+          {!isMobile ? (
+            <Paper
+              variant="outlined"
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                borderRadius: 0,
+                backgroundColor: "background.paper",
+                borderColor: "divider"
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Typography variant="overline" color="text.secondary">
+                  Mobile-first deck
+                </Typography>
+                <Typography
+                  variant="h1"
+                  sx={{ fontSize: { xs: "2.1rem", md: "3rem" } }}
+                >
+                  Swipe fast. Study deeper. Hand off better clues.
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ maxWidth: 760 }}
+                >
+                  SmashDex now behaves more like a pocket field guide on mobile:
+                  the important controls stay thumb-ready, the card keeps all
+                  its data, and the whole experience stays focused on Smash or
+                  Pass instead of splitting attention across extra modes.
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip color="secondary" label={deck.statusText} />
+                  <Chip
+                    variant="outlined"
+                    label={`${favorites.length} saved Pokemon`}
+                  />
+                  <Chip
+                    variant="outlined"
+                    label={`${history.smashCount + history.passCount} total votes`}
+                  />
+                </Stack>
+              </Stack>
+            </Paper>
+          ) : null}
+
+          <Box
+            sx={{
+              display: "flex",
+              flex: 1,
+              width: "100%",
+              minWidth: 0,
+              minHeight: { xs: 0, md: "auto" },
+              "& > *": {
+                flex: 1,
+                minWidth: 0
+              }
+            }}
+          >
+            <PokemonCard
+              pokemon={deck.currentPokemon}
+              emptyTitle={isDeckEmpty ? "No Pokemon" : undefined}
+              emptyBody={
+                isDeckEmpty
+                  ? "Choose more generations or types to keep swiping."
+                  : undefined
+              }
+              isFavorite={isFavorite}
+              showStats={showStats}
+              shinyMode={options.shinyMode}
+              cardShellClassName={isShuffling ? "is-shuffling" : undefined}
+              swipeStatus={swipeStatus}
+              isDragging={swipeApi.isDragging}
+              transform={swipeApi.transform}
+              currentImage={currentImage}
+              gallery={gallery}
+              onSelectImage={setCurrentImage}
+              onCycleImage={handleCycleImage}
+              onToggleFavorite={toggleFavorite}
+              onToggleStats={onToggleStats}
+              onPlayCry={playCry}
+              cryDisabled={!deck.currentPokemon?.cry}
+              cryPlaying={cryPlaying}
+              pointerHandlers={swipeApi.handlers}
+            />
+          </Box>
 
           <ActionRow
             disabled={!deck.currentPokemon || isAnimatingSwipe || isShuffling}
             isShuffling={isShuffling}
-            undoCount={swipeStack.length}
-            onPass={() => {
-              swipe("pass");
-              setMobileHubOpen(false);
-            }}
-            onSmash={() => {
-              swipe("smash");
-              setMobileHubOpen(false);
-            }}
-            onUndo={() => {
-              undoLast();
-              setMobileHubOpen(false);
-            }}
+            onPass={() => swipe("pass")}
+            onSmash={() => swipe("smash")}
             onShuffle={shuffleDeck}
           />
 
-          <div className="hint">
-            <span className="hint-desktop">
-              Tip: swipe with your trackpad or use left/right arrow keys.
-            </span>
-            <span className="hint-mobile">
-              Tip: swipe left or right to vote, swipe up to shuffle.
-            </span>
-          </div>
-        </div>
-      </section>
+          {!isMobile ? (
+            <Paper
+              variant="outlined"
+              sx={{ p: 1.5, borderRadius: 0, bgcolor: "background.paper" }}
+            >
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                justifyContent="space-between"
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Tip: swipe left or right to vote, tap the art to cycle images,
+                  and use the new control drawer when you want filters, history,
+                  or exports.
+                </Typography>
+                <Button
+                  color="secondary"
+                  variant="text"
+                  startIcon={<ShuffleRoundedIcon />}
+                  onClick={shuffleDeck}
+                  disabled={isShuffling}
+                >
+                  Refresh the deck
+                </Button>
+              </Stack>
+            </Paper>
+          ) : null}
+        </Stack>
+
+        {!isMobile ? (
+          <SessionPanel
+            statusText={deck.statusText}
+            queueLeft={deck.queue.length}
+            smashCount={history.smashCount}
+            passCount={history.passCount}
+            smashStreak={smashStreak}
+            passStreak={passStreak}
+            favoritesCount={favorites.length}
+            badges={badges}
+            recentSmash={history.smash.slice(-6).reverse()}
+            recentPass={history.pass.slice(-6).reverse()}
+          />
+        ) : null}
+      </Box>
 
       <FiltersPanel
         open={panelOpen}
@@ -848,10 +1324,17 @@ export const SmashPage = () => {
         favorites={favorites}
         badges={badges}
         onClose={() => setPanelOpen(false)}
-        onSetAllGens={() => setFilters((prev) => ({ ...prev, gens: Array.from({ length: GEN_TOTAL }, (_, i) => i + 1) }))}
+        onSetAllGens={() =>
+          setFilters((prev) => ({
+            ...prev,
+            gens: Array.from({ length: GEN_TOTAL }, (_, i) => i + 1)
+          }))
+        }
         onClearGens={() => setFilters((prev) => ({ ...prev, gens: [] }))}
         onToggleGen={onToggleGen}
-        onSetAllTypes={() => setFilters((prev) => ({ ...prev, types: [...TYPE_LIST] }))}
+        onSetAllTypes={() =>
+          setFilters((prev) => ({ ...prev, types: [...TYPE_LIST] }))
+        }
         onClearTypes={() => setFilters((prev) => ({ ...prev, types: [] }))}
         onToggleType={onToggleType}
         onChangeOption={onChangeOption}
@@ -861,59 +1344,11 @@ export const SmashPage = () => {
         onShareCard={shareMatchCard}
       />
 
-      <button
-        type="button"
-        className={cn("panel-overlay", panelOpen && "is-open")}
-        aria-hidden={!panelOpen}
-        tabIndex={panelOpen ? 0 : -1}
-        onClick={() => setPanelOpen(false)}
-      >
-        <span className="sr-only">Close filters panel</span>
-      </button>
-
-      <MobileHub
-        hubRef={mobileHubRef}
-        open={mobileHubOpen}
-        statusText={deck.statusText}
-        smashCount={history.smashCount}
-        passCount={history.passCount}
-        undoCount={swipeStack.length}
-        keepHistory={options.keepHistory}
-        favorites={favorites}
-        smashHistory={history.smash}
-        passHistory={history.pass}
-        onClose={() => setMobileHubOpen(false)}
-        onHelp={() => {
-          shell.setHelpOpen(true);
-          setMobileHubOpen(false);
-        }}
-        onOpenFilters={() => {
-          setPanelOpen(true);
-          setMobileHubOpen(false);
-        }}
-        onPass={() => {
-          swipe("pass");
-          setMobileHubOpen(false);
-        }}
-        onSmash={() => {
-          swipe("smash");
-          setMobileHubOpen(false);
-        }}
-        onUndo={() => {
-          undoLast();
-          setMobileHubOpen(false);
-        }}
-        onShuffle={() => {
-          void shuffleDeck();
-          setMobileHubOpen(false);
-        }}
-      />
-
       <SummaryModal
         open={summaryOpen}
         summary={summaryData}
         onClose={() => setSummaryOpen(false)}
       />
-    </div>
+    </>
   );
 };

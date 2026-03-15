@@ -1,10 +1,13 @@
 import React from "react";
 import {
+  Button,
+  Chip,
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
+  DialogTitle,
+  Stack,
+  Typography
+} from "@mui/material";
 
 export type SmashSummary = {
   totalSwipes: number;
@@ -23,40 +26,59 @@ export const SummaryModal = ({
   onClose: () => void;
 }) => {
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Swipe summary</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-3 text-sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Swipe summary</DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5}>
           {summary ? (
             <>
-              <div>
-                <strong>{summary.totalSwipes}</strong> swipes ·{" "}
-                <strong>{summary.smashRate}%</strong> smash rate
-              </div>
-              <div>
-                <strong>Top types:</strong>{" "}
-                {summary.topTypes.length
-                  ? summary.topTypes
-                    .map((entry) => `${entry.type} (${entry.count})`)
-                    .join(", ")
-                  : "None yet"}
-              </div>
-              <div>
-                <strong>Avg stats:</strong>{" "}
-                {summary.avgStats
-                  .map((stat) => `${stat.label} ${stat.value}`)
-                  .join(" · ")}
-              </div>
+              <Typography variant="body1">
+                <strong>{summary.totalSwipes}</strong> swipes with a{" "}
+                <strong>{summary.smashRate}%</strong> smash rate.
+              </Typography>
+
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Top types</Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {summary.topTypes.length ? (
+                    summary.topTypes.map((entry) => (
+                      <Chip
+                        key={entry.type}
+                        color="secondary"
+                        label={`${entry.type} (${entry.count})`}
+                      />
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      None yet
+                    </Typography>
+                  )}
+                </Stack>
+              </Stack>
+
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">
+                  Average battle stats
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {summary.avgStats.map((stat) => (
+                    <Chip
+                      key={stat.label}
+                      variant="outlined"
+                      label={`${stat.label} ${stat.value}`}
+                    />
+                  ))}
+                </Stack>
+              </Stack>
             </>
           ) : (
-            <div>Loading summary…</div>
+            <Typography color="text.secondary">Loading summary…</Typography>
           )}
-        </div>
-        <button className="action shuffle" type="button" onClick={onClose}>
-          Keep swiping
-        </button>
+
+          <Button variant="contained" onClick={onClose}>
+            Keep swiping
+          </Button>
+        </Stack>
       </DialogContent>
     </Dialog>
   );
