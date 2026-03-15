@@ -1,6 +1,7 @@
 import React from "react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { MEGA_EVOLUTION_SPECIES } from "@/lib/constants";
+import { collectPokemonImageUrls, preloadImages } from "@/lib/images";
 import { fetchGenerationRoster, fetchPokemon, fetchTypeIndex } from "@/lib/pokeapi/api";
 import type { Pokemon } from "@/lib/pokeapi/types";
 import { TYPE_LIST, type PokemonTypeName } from "@/lib/typeChart";
@@ -8,18 +9,9 @@ import { seededShuffle, seedFromDate, shuffle } from "@/games/smash/smashLogic";
 import type { SmashFiltersStorage, SmashOptionsStorage } from "@/games/smash/smashTypes";
 
 const DAILY_SIZE = 20;
-const PRELOAD_COUNT = 2;
+const PRELOAD_COUNT = 3;
 
 const unique = <T,>(items: T[]) => Array.from(new Set(items));
-
-const preloadImages = (urls: string[]) => {
-  urls.forEach((url) => {
-    if (!url) return;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = url;
-  });
-};
 
 const getDeckLabel = (dailyDeck: boolean) => (dailyDeck ? "Daily deck" : "Deck");
 
@@ -93,7 +85,7 @@ export const useSmashDeck = ({
               queryFn: () => fetchPokemon(key)
             });
             if (token !== tokenRef.current) return;
-            preloadImages(pokemon.images.gallery);
+            preloadImages(collectPokemonImageUrls(pokemon));
           } catch {
             // ignore preload failures
           }
@@ -124,6 +116,7 @@ export const useSmashDeck = ({
           queryFn: () => fetchPokemon(key)
         });
         if (token !== tokenRef.current) return;
+        preloadImages(collectPokemonImageUrls(pokemon));
         setCurrentPokemon(pokemon);
         void prefetchUpcoming(token);
         return;

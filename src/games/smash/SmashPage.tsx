@@ -1051,7 +1051,11 @@ export const SmashPage = () => {
     onShuffle: shuffleDeck,
     shouldIgnoreEvent: (target) =>
       target instanceof Element &&
-      Boolean(target.closest("button, input, label"))
+      Boolean(
+        target.closest(
+          "button, input, label, [data-card-swipe-ignore='true']"
+        )
+      )
   });
 
   const swipeStatus = forcedSwipeStatus || swipeApi.status;

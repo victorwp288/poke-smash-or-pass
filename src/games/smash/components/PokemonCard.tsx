@@ -267,8 +267,12 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
     <Stack spacing={0.9}>
       <Typography variant="subtitle2">Evolution line</Typography>
       <Box
+        data-card-swipe-ignore="true"
         sx={{
           overflowX: "auto",
+          overscrollBehaviorX: "contain",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-x",
           border: "1px solid",
           borderColor: "divider",
           bgcolor: "background.paper"
