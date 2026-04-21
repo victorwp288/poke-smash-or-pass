@@ -12,6 +12,38 @@
       content="Swipe through the Pokedex with a mobile-first Smash or Pass deck, detailed Pokemon cards, filters, favorites, and cry playback."
     />
     <meta name="theme-color" content="#ff6b2d" />
+    <script>
+      (() => {
+        const key = "smashdex-theme-mode";
+        let mode = "light";
+
+        try {
+          const stored = localStorage.getItem(key);
+          const parsed = stored ? JSON.parse(stored) : null;
+          if (parsed === "light" || parsed === "dark") {
+            mode = parsed;
+          } else if (
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+          ) {
+            mode = "dark";
+          }
+        } catch {
+          if (
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+          ) {
+            mode = "dark";
+          }
+        }
+
+        const root = document.documentElement;
+        root.dataset.colorScheme = mode;
+        root.classList.toggle("dark", mode === "dark");
+        const meta = document.querySelector('meta[name="theme-color"]');
+        meta?.setAttribute("content", mode === "dark" ? "#0f1a20" : "#f7f9fc");
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="apple-touch-icon" href="/icons/icon-180.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

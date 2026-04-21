@@ -1,5 +1,6 @@
 import { useShell } from "@/app/providers/ShellProvider";
 import { useLocale } from "@/app/providers/LocaleProvider";
+import { ThemeModeToggle } from "@/components/shell/ThemeModeToggle";
 import { ActionRow } from "@/games/smash/components/ActionRow";
 import { FiltersPanel } from "@/games/smash/components/FiltersPanel";
 import { PokemonCard } from "@/games/smash/components/PokemonCard";
@@ -60,6 +61,7 @@ import {
   Paper,
   Stack,
   Typography,
+  alpha,
   useMediaQuery,
   useTheme
 } from "@mui/material";
@@ -144,7 +146,9 @@ const buildBadges = ({
     .map(([type, count]) => [type, Number(count) || 0] as const)
     .sort((a, b) => b[1] - a[1]);
   if (typeEntries[0]?.[1] >= 6) {
-    badges.push(strings.badges.typeFan(getTypeLabel(locale, typeEntries[0][0])));
+    badges.push(
+      strings.badges.typeFan(getTypeLabel(locale, typeEntries[0][0]))
+    );
   }
 
   if (smashCount > 0) {
@@ -171,8 +175,7 @@ const buildBadges = ({
 
 const buildSummary = (
   history: SmashHistoryStorage,
-  locale: AppLocale,
-  strings: LocaleStrings
+  locale: AppLocale
 ): SmashSummary => {
   const totalSwipes = history.smashCount + history.passCount;
   const smashRate = totalSwipes
@@ -240,10 +243,7 @@ const drawRoundedRect = (
   ctx.closePath();
 };
 
-const buildSmashHelpBody = (
-  smashPassMode: boolean,
-  strings: LocaleStrings
-) => (
+const buildSmashHelpBody = (smashPassMode: boolean, strings: LocaleStrings) => (
   <Stack spacing={1.2}>
     {[
       [
@@ -297,7 +297,14 @@ const CornerPokeballMenu = ({
   onOpenFilters: () => void;
 }) => {
   const { strings } = useLocale();
+  const theme = useTheme();
   const [open, setOpen] = React.useState(false);
+  const ballStroke =
+    theme.palette.mode === "dark"
+      ? alpha(theme.palette.common.white, 0.84)
+      : "#141414";
+  const ballBottom =
+    theme.palette.mode === "dark" ? theme.palette.background.paper : "#f6f1e8";
 
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
@@ -351,6 +358,7 @@ const CornerPokeballMenu = ({
                 >
                   {strings.filters.button}
                 </Button>
+                <ThemeModeToggle fullWidth justifyContent="flex-start" />
               </Stack>
             </Paper>
           ) : null}
@@ -366,15 +374,17 @@ const CornerPokeballMenu = ({
               width: { xs: 40, sm: 60 },
               height: { xs: 40, sm: 60 },
               borderRadius: "50%",
-              border: "3px solid #141414",
+              border: "3px solid",
+              borderColor: ballStroke,
               padding: 0,
               cursor: "pointer",
               position: "relative",
               display: "block",
-              background:
-                "linear-gradient(180deg, #e64b3b 0 46%, #121212 46% 56%, #f6f1e8 56% 100%)",
+              background: `linear-gradient(180deg, #e64b3b 0 46%, ${ballStroke} 46% 56%, ${ballBottom} 56% 100%)`,
               boxShadow:
-                "0 14px 28px rgba(16, 24, 40, 0.24), inset 0 2px 0 rgba(255,255,255,0.4)",
+                theme.palette.mode === "dark"
+                  ? "0 14px 28px rgba(0, 0, 0, 0.34), inset 0 2px 0 rgba(255,255,255,0.16)"
+                  : "0 14px 28px rgba(16, 24, 40, 0.24), inset 0 2px 0 rgba(255,255,255,0.4)",
               transition: "transform 160ms ease, box-shadow 160ms ease",
               "&::before": {
                 content: '""',
@@ -384,9 +394,13 @@ const CornerPokeballMenu = ({
                 height: 18,
                 transform: "translate(-50%, -50%)",
                 borderRadius: "50%",
-                border: "3px solid #141414",
-                bgcolor: "#f8f4ec",
-                boxShadow: "0 0 0 4px rgba(255,255,255,0.35)"
+                border: "3px solid",
+                borderColor: ballStroke,
+                bgcolor: ballBottom,
+                boxShadow:
+                  theme.palette.mode === "dark"
+                    ? "0 0 0 4px rgba(255,255,255,0.14)"
+                    : "0 0 0 4px rgba(255,255,255,0.35)"
               },
               "&::after": {
                 content: '""',
@@ -396,12 +410,14 @@ const CornerPokeballMenu = ({
                 width: "100%",
                 height: 6,
                 transform: "translate(-50%, -50%)",
-                bgcolor: "#141414"
+                bgcolor: ballStroke
               },
               "&:hover": {
                 transform: "translateY(-1px) scale(1.02)",
                 boxShadow:
-                  "0 18px 36px rgba(16, 24, 40, 0.28), inset 0 2px 0 rgba(255,255,255,0.42)"
+                  theme.palette.mode === "dark"
+                    ? "0 18px 36px rgba(0, 0, 0, 0.42), inset 0 2px 0 rgba(255,255,255,0.18)"
+                    : "0 18px 36px rgba(16, 24, 40, 0.28), inset 0 2px 0 rgba(255,255,255,0.42)"
               }
             }}
           />
@@ -528,10 +544,16 @@ const SessionPanel = ({
               />
             ) : null}
             {passStreak > 0 ? (
-              <Chip color="error" label={strings.session.passStreak(passStreak)} />
+              <Chip
+                color="error"
+                label={strings.session.passStreak(passStreak)}
+              />
             ) : null}
             {!smashStreak && !passStreak ? (
-              <Chip variant="outlined" label={strings.session.noCurrentStreak} />
+              <Chip
+                variant="outlined"
+                label={strings.session.noCurrentStreak}
+              />
             ) : null}
           </Stack>
         </Stack>
@@ -571,7 +593,9 @@ const SessionPanel = ({
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 0 }}>
         <Stack spacing={1.25}>
           <Typography variant="h3">{strings.session.recentPicks}</Typography>
-          <Typography variant="subtitle2">{strings.session.smashList}</Typography>
+          <Typography variant="subtitle2">
+            {strings.session.smashList}
+          </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {recentSmash.length ? (
               recentSmash.map((entry, idx) => (
@@ -595,7 +619,9 @@ const SessionPanel = ({
               </Typography>
             )}
           </Stack>
-          <Typography variant="subtitle2">{strings.session.passList}</Typography>
+          <Typography variant="subtitle2">
+            {strings.session.passList}
+          </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {recentPass.length ? (
               recentPass.map((entry, idx) => (
@@ -750,7 +776,10 @@ export const SmashPage = () => {
     } catch {
       // ignore
     }
-    shell.setHeader({ title: strings.shell.title, category: strings.shell.category });
+    shell.setHeader({
+      title: strings.shell.title,
+      category: strings.shell.category
+    });
   }, [shell, strings.shell.category, strings.shell.title]);
 
   React.useEffect(() => {
@@ -802,10 +831,16 @@ export const SmashPage = () => {
       </Stack>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history.passCount, history.smashCount, strings.session.pass, strings.session.smash]);
+  }, [
+    history.passCount,
+    history.smashCount,
+    strings.session.pass,
+    strings.session.smash
+  ]);
 
   React.useEffect(() => {
     void deck.rebuildQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck.rebuildQueue]);
 
   React.useEffect(() => {
@@ -825,6 +860,7 @@ export const SmashPage = () => {
 
     setGallery(nextGallery);
     setCurrentImage(baseImage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck.currentPokemon?.rawName, options.shinyMode]);
 
   React.useEffect(() => {
@@ -846,7 +882,10 @@ export const SmashPage = () => {
   const toggleFavorite = () => {
     const pokemon = deck.currentPokemon;
     if (!pokemon) return;
-    const pokemonKey = getHistoryEntryKey({ key: pokemon.rawName, name: pokemon.name });
+    const pokemonKey = getHistoryEntryKey({
+      key: pokemon.rawName,
+      name: pokemon.name
+    });
     setFavorites((prev) => {
       const existingIndex = prev.findIndex(
         (fav) => getHistoryEntryKey(fav) === pokemonKey
@@ -1021,7 +1060,7 @@ export const SmashPage = () => {
 
     const totalSwipes = next.smashCount + next.passCount;
     if (totalSwipes && totalSwipes % SUMMARY_INTERVAL === 0) {
-      setSummaryData(buildSummary(next, locale, strings));
+      setSummaryData(buildSummary(next, locale));
       setSummaryOpen(true);
     }
   };
@@ -1232,6 +1271,7 @@ export const SmashPage = () => {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pickerOpen,
     panelOpen,
@@ -1329,36 +1369,44 @@ export const SmashPage = () => {
                 borderColor: "divider"
               }}
             >
-              <Stack spacing={1.5}>
-                <Typography variant="overline" color="text.secondary">
-                  {strings.shell.desktopOverline}
-                </Typography>
-                <Typography
-                  variant="h1"
-                  sx={{ fontSize: { xs: "2.1rem", md: "3rem" } }}
-                >
-                  {strings.page.heroTitle}
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color="text.secondary"
-                  sx={{ maxWidth: 760 }}
-                >
-                  {strings.page.heroBody}
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Chip color="secondary" label={deck.statusText} />
-                  <Chip
-                    variant="outlined"
-                    label={strings.page.savedPokemon(favorites.length)}
-                  />
-                  <Chip
-                    variant="outlined"
-                    label={strings.page.totalVotes(
-                      history.smashCount + history.passCount
-                    )}
-                  />
+              <Stack
+                direction={{ xs: "column", lg: "row" }}
+                spacing={2}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", lg: "flex-start" }}
+              >
+                <Stack spacing={1.5} sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="overline" color="text.secondary">
+                    {strings.shell.desktopOverline}
+                  </Typography>
+                  <Typography
+                    variant="h1"
+                    sx={{ fontSize: { xs: "2.1rem", md: "3rem" } }}
+                  >
+                    {strings.page.heroTitle}
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    color="text.secondary"
+                    sx={{ maxWidth: 760 }}
+                  >
+                    {strings.page.heroBody}
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Chip color="secondary" label={deck.statusText} />
+                    <Chip
+                      variant="outlined"
+                      label={strings.page.savedPokemon(favorites.length)}
+                    />
+                    <Chip
+                      variant="outlined"
+                      label={strings.page.totalVotes(
+                        history.smashCount + history.passCount
+                      )}
+                    />
+                  </Stack>
                 </Stack>
+                <ThemeModeToggle />
               </Stack>
             </Paper>
           ) : null}
@@ -1379,11 +1427,7 @@ export const SmashPage = () => {
             <PokemonCard
               pokemon={deck.currentPokemon}
               emptyTitle={isDeckEmpty ? strings.page.emptyTitle : undefined}
-              emptyBody={
-                isDeckEmpty
-                  ? strings.page.emptyBody
-                  : undefined
-              }
+              emptyBody={isDeckEmpty ? strings.page.emptyBody : undefined}
               isFavorite={isFavorite}
               showStats={showStats}
               shinyMode={options.shinyMode}

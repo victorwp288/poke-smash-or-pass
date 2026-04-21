@@ -2,7 +2,7 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
 import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
 import { useLocale } from "@/app/providers/LocaleProvider";
-import { Box, Button, Paper, alpha, keyframes } from "@mui/material";
+import { Box, Button, Paper, alpha, keyframes, useTheme } from "@mui/material";
 
 const pokeballSpin = keyframes`
   from {
@@ -21,36 +21,53 @@ const actionRowShellSx = {
   py: { xs: 1.25, md: 0.5 }
 } as const;
 
-const PokeballLoader = () => (
-  <Box
-    aria-hidden="true"
-    sx={{
-      position: "relative",
-      width: { xs: 42, sm: 48 },
-      height: { xs: 42, sm: 48 },
-      borderRadius: "50%",
-      border: "2px solid #101828",
-      background:
-        "linear-gradient(180deg, #e5483d 0 46%, #101828 46% 54%, #fffaf2 54% 100%)",
-      boxShadow: "0 12px 24px rgba(15, 23, 42, 0.16)",
-      animation: `${pokeballSpin} 1.05s linear infinite`
-    }}
-  >
+const PokeballLoader = () => {
+  const theme = useTheme();
+  const stroke =
+    theme.palette.mode === "dark"
+      ? alpha(theme.palette.common.white, 0.82)
+      : "#101828";
+  const bottom =
+    theme.palette.mode === "dark" ? theme.palette.background.paper : "#fffaf2";
+
+  return (
     <Box
+      aria-hidden="true"
       sx={{
-        position: "absolute",
-        inset: "50% auto auto 50%",
-        width: "34%",
-        height: "34%",
-        transform: "translate(-50%, -50%)",
+        position: "relative",
+        width: { xs: 42, sm: 48 },
+        height: { xs: 42, sm: 48 },
         borderRadius: "50%",
-        border: "2px solid #101828",
-        bgcolor: "#fffaf2",
-        boxShadow: "0 0 0 2px rgba(255,255,255,0.24)"
+        border: "2px solid",
+        borderColor: stroke,
+        background: `linear-gradient(180deg, #e5483d 0 46%, ${stroke} 46% 54%, ${bottom} 54% 100%)`,
+        boxShadow:
+          theme.palette.mode === "dark"
+            ? "0 12px 24px rgba(0, 0, 0, 0.28)"
+            : "0 12px 24px rgba(15, 23, 42, 0.16)",
+        animation: `${pokeballSpin} 1.05s linear infinite`
       }}
-    />
-  </Box>
-);
+    >
+      <Box
+        sx={{
+          position: "absolute",
+          inset: "50% auto auto 50%",
+          width: "34%",
+          height: "34%",
+          transform: "translate(-50%, -50%)",
+          borderRadius: "50%",
+          border: "2px solid",
+          borderColor: stroke,
+          bgcolor: bottom,
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 0 0 2px rgba(255,255,255,0.14)"
+              : "0 0 0 2px rgba(255,255,255,0.24)"
+        }}
+      />
+    </Box>
+  );
+};
 
 export const ActionRow = ({
   disabled,
@@ -68,6 +85,7 @@ export const ActionRow = ({
   onShuffle: () => void;
 }) => {
   const { strings } = useLocale();
+  const theme = useTheme();
 
   const shuffleButton = (
     <Button
@@ -80,7 +98,10 @@ export const ActionRow = ({
         justifySelf: "center",
         minWidth: { xs: 132, sm: 156 },
         px: { xs: 2, sm: 2.5 },
-        boxShadow: "0 12px 24px rgba(15, 23, 42, 0.18)",
+        boxShadow:
+          theme.palette.mode === "dark"
+            ? "0 12px 24px rgba(0, 0, 0, 0.28)"
+            : "0 12px 24px rgba(15, 23, 42, 0.18)",
         borderRadius: "999px"
       }}
     >
@@ -119,9 +140,7 @@ export const ActionRow = ({
   }
 
   return (
-    <Box
-      sx={actionRowShellSx}
-    >
+    <Box sx={actionRowShellSx}>
       <Paper
         variant="outlined"
         sx={{
@@ -129,7 +148,10 @@ export const ActionRow = ({
           borderRadius: "999px",
           bgcolor: "background.paper",
           borderColor: "divider",
-          boxShadow: "0 18px 32px rgba(15, 23, 42, 0.12)"
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 18px 32px rgba(0, 0, 0, 0.32)"
+              : "0 18px 32px rgba(15, 23, 42, 0.12)"
         }}
       >
         <Box
@@ -161,7 +183,7 @@ export const ActionRow = ({
                 fontWeight: 700,
                 color: "error.main",
                 "&:hover": {
-                  bgcolor: alpha("#d92d20", 0.08)
+                  bgcolor: alpha(theme.palette.error.main, 0.12)
                 }
               }}
             >
@@ -185,7 +207,7 @@ export const ActionRow = ({
                 borderRadius: "999px",
                 color: "success.main",
                 "&:hover": {
-                  bgcolor: alpha("#039855", 0.08)
+                  bgcolor: alpha(theme.palette.success.main, 0.12)
                 }
               }}
             >

@@ -1,4 +1,5 @@
 import { useLocale } from "@/app/providers/LocaleProvider";
+import { getBackdropSurface, getFrostedSurface } from "@/lib/theme";
 import { capitalize, formatId, normalizeGuessToken } from "@/lib/text";
 import {
   GENERATION_ROSTER_ENTRIES_STALE_MS,
@@ -44,7 +45,10 @@ const buildGenerationMap = (groups: GenerationRosterEntry[][]) =>
 const getCachedRosterMap = (queryClient: ReturnType<typeof useQueryClient>) =>
   Array.from({ length: GEN_TOTAL }, (_, index) => {
     const genId = index + 1;
-    return [genId, getCachedGenerationRosterEntries(queryClient, genId)] as const;
+    return [
+      genId,
+      getCachedGenerationRosterEntries(queryClient, genId)
+    ] as const;
   }).reduce<GenerationRosterMap>((map, [genId, entries]) => {
     if (entries?.length) {
       map[genId] = entries;
@@ -76,37 +80,40 @@ export const PokemonPickerModal = ({
   const [loadError, setLoadError] = React.useState("");
   const requestTokenRef = React.useRef(0);
 
-  const loadRosters = React.useCallback(async (showLoading = true) => {
-    const token = ++requestTokenRef.current;
-    if (showLoading) setIsLoading(true);
-    setLoadError("");
+  const loadRosters = React.useCallback(
+    async (showLoading = true) => {
+      const token = ++requestTokenRef.current;
+      if (showLoading) setIsLoading(true);
+      setLoadError("");
 
-    try {
-      const groups = await Promise.all(
-        Array.from({ length: GEN_TOTAL }, (_, index) => {
-          const genId = index + 1;
-          return queryClient.fetchQuery<GenerationRosterEntry[]>(
-            getGenerationRosterEntriesQueryOptions(
-              genId,
-              GENERATION_ROSTER_ENTRIES_STALE_MS
-            )
-          );
-        })
-      );
+      try {
+        const groups = await Promise.all(
+          Array.from({ length: GEN_TOTAL }, (_, index) => {
+            const genId = index + 1;
+            return queryClient.fetchQuery<GenerationRosterEntry[]>(
+              getGenerationRosterEntriesQueryOptions(
+                genId,
+                GENERATION_ROSTER_ENTRIES_STALE_MS
+              )
+            );
+          })
+        );
 
-      if (token !== requestTokenRef.current) return;
-      setRosters(buildGenerationMap(groups));
-    } catch {
-      if (token !== requestTokenRef.current) return;
-      if (showLoading) {
-        setLoadError(strings.picker.listUnavailableBody);
+        if (token !== requestTokenRef.current) return;
+        setRosters(buildGenerationMap(groups));
+      } catch {
+        if (token !== requestTokenRef.current) return;
+        if (showLoading) {
+          setLoadError(strings.picker.listUnavailableBody);
+        }
+      } finally {
+        if (token === requestTokenRef.current && showLoading) {
+          setIsLoading(false);
+        }
       }
-    } finally {
-      if (token === requestTokenRef.current && showLoading) {
-        setIsLoading(false);
-      }
-    }
-  }, [queryClient, strings.picker.listUnavailableBody]);
+    },
+    [queryClient, strings.picker.listUnavailableBody]
+  );
 
   React.useEffect(() => {
     if (!open) return;
@@ -135,7 +142,8 @@ export const PokemonPickerModal = ({
         .sort((a, b) => {
           if (a.generation !== b.generation) return a.generation - b.generation;
           const idOrder =
-            (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER);
+            (a.id ?? Number.MAX_SAFE_INTEGER) -
+            (b.id ?? Number.MAX_SAFE_INTEGER);
           if (idOrder !== 0) return idOrder;
           return a.name.localeCompare(b.name);
         }),
@@ -157,7 +165,9 @@ export const PokemonPickerModal = ({
     const numericSearch = searchValue.replace(/[^0-9]/g, "");
 
     return baseEntries.filter((entry) => {
-      const nameMatch = normalizeGuessToken(entry.name).includes(normalizedSearch);
+      const nameMatch = normalizeGuessToken(entry.name).includes(
+        normalizedSearch
+      );
       if (nameMatch) return true;
       if (!numericSearch) return false;
       return String(entry.id ?? "").includes(numericSearch);
@@ -178,7 +188,9 @@ export const PokemonPickerModal = ({
             theme.palette.info.main,
             0.14
           )} 0%, transparent 28%), linear-gradient(180deg, ${alpha(
-            theme.palette.common.white,
+            theme.palette.mode === "dark"
+              ? theme.palette.background.default
+              : theme.palette.common.white,
             0.98
           )} 0%, ${theme.palette.background.paper} 50%, ${alpha(
             theme.palette.secondary.light,
@@ -194,7 +206,7 @@ export const PokemonPickerModal = ({
             py: { xs: 2, sm: 2.5 },
             borderBottom: "1px solid",
             borderColor: alpha(theme.palette.text.primary, 0.12),
-            bgcolor: alpha(theme.palette.common.white, 0.84),
+            bgcolor: getBackdropSurface(theme, 0.84),
             backdropFilter: "blur(14px)"
           }}
         >
@@ -212,7 +224,7 @@ export const PokemonPickerModal = ({
                 sx={{
                   border: "1px solid",
                   borderColor: alpha(theme.palette.secondary.main, 0.14),
-                  bgcolor: alpha(theme.palette.common.white, 0.72),
+                  bgcolor: getBackdropSurface(theme, 0.72),
                   "&:hover": {
                     bgcolor: alpha(theme.palette.secondary.main, 0.08)
                   }
@@ -232,7 +244,7 @@ export const PokemonPickerModal = ({
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 0,
-                  bgcolor: alpha(theme.palette.common.white, 0.94),
+                  bgcolor: getFrostedSurface(theme, 0.94),
                   transition: theme.transitions.create([
                     "background-color",
                     "border-color",
@@ -269,7 +281,7 @@ export const PokemonPickerModal = ({
             zIndex: 2,
             borderBottom: "1px solid",
             borderColor: alpha(theme.palette.text.primary, 0.12),
-            bgcolor: alpha(theme.palette.common.white, 0.9),
+            bgcolor: getBackdropSurface(theme, 0.9),
             backdropFilter: "blur(14px)"
           }}
         >
@@ -303,7 +315,7 @@ export const PokemonPickerModal = ({
             overflowY: "auto",
             px: 0,
             py: 0,
-            bgcolor: theme.palette.common.white
+            bgcolor: "background.paper"
           }}
         >
           {isLoading ? (
@@ -330,7 +342,9 @@ export const PokemonPickerModal = ({
               }}
             >
               <Stack spacing={1.5} alignItems="flex-start">
-                <Typography variant="h4">{strings.picker.listUnavailable}</Typography>
+                <Typography variant="h4">
+                  {strings.picker.listUnavailable}
+                </Typography>
                 <Typography color="text.secondary">{loadError}</Typography>
                 <Button variant="contained" onClick={() => void loadRosters()}>
                   {strings.common.tryAgain}
@@ -342,7 +356,8 @@ export const PokemonPickerModal = ({
               {filteredEntries.map((entry) => {
                 const isCurrent =
                   normalizeGuessToken(entry.name) === currentKey;
-                const showDivider = entry !== filteredEntries[filteredEntries.length - 1];
+                const showDivider =
+                  entry !== filteredEntries[filteredEntries.length - 1];
 
                 return (
                   <Button
@@ -358,7 +373,7 @@ export const PokemonPickerModal = ({
                       py: 2.2,
                       borderRadius: 0,
                       textTransform: "none",
-                      bgcolor: alpha(theme.palette.common.white, 0.84),
+                      bgcolor: getFrostedSurface(theme, 0.84),
                       color: "text.primary",
                       borderTop: showDivider ? "1px solid" : "none",
                       borderBottom: "1px solid",
@@ -399,9 +414,14 @@ export const PokemonPickerModal = ({
                         <Typography
                           variant="caption"
                           color="text.secondary"
-                          sx={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
+                          sx={{
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase"
+                          }}
                         >
-                          {entry.id ? formatId(entry.id) : strings.picker.unknown}
+                          {entry.id
+                            ? formatId(entry.id)
+                            : strings.picker.unknown}
                         </Typography>
                         {entry.generation ? (
                           <Typography
@@ -409,7 +429,10 @@ export const PokemonPickerModal = ({
                             sx={{
                               px: 0.75,
                               py: 0.15,
-                              bgcolor: alpha(theme.palette.secondary.main, 0.06),
+                              bgcolor: alpha(
+                                theme.palette.secondary.main,
+                                0.06
+                              ),
                               color: "text.secondary",
                               letterSpacing: "0.06em",
                               textTransform: "uppercase"

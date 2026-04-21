@@ -34,7 +34,7 @@ export const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 h-dvh w-[min(92vw,460px)] border bg-white/90 p-5 text-foreground shadow-xl backdrop-blur data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "fixed z-50 h-dvh w-[min(92vw,460px)] border border-border bg-background p-5 text-foreground shadow-xl backdrop-blur data-[state=open]:animate-in data-[state=closed]:animate-out",
         side === "right"
           ? "right-0 top-0 border-l data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right"
           : "left-0 top-0 border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
@@ -43,7 +43,7 @@ export const SheetContent = React.forwardRef<
       {...props}
     >
       {children}
-      <SheetClose className="absolute right-3 top-3 rounded-full p-2 text-muted-foreground hover:bg-black/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <SheetClose className="absolute right-3 top-3 rounded-full p-2 text-muted-foreground hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </SheetClose>

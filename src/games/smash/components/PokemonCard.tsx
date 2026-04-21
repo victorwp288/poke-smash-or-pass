@@ -1,5 +1,5 @@
-import { getSpriteScale } from "@/games/smash/smashLogic";
 import { useLocale } from "@/app/providers/LocaleProvider";
+import { getSpriteScale } from "@/games/smash/smashLogic";
 import { TYPE_COLORS, TYPE_ICON_FILES } from "@/lib/constants";
 import {
   getCategoryLabel,
@@ -12,6 +12,7 @@ import {
   splitEvolutionEntryVariants
 } from "@/lib/pokeapi/evolution";
 import type { Pokemon } from "@/lib/pokeapi/types";
+import { getBackdropSurface, getFrostedSurface } from "@/lib/theme";
 import { formatId, normalizeInlineText } from "@/lib/text";
 import type { PokemonTypeName } from "@/lib/typeChart";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
@@ -130,7 +131,14 @@ const VitalPill = ({
             component="img"
             src={icon}
             alt={iconAlt || ""}
-            sx={{ width: 18, height: 18 }}
+            sx={{
+              width: 18,
+              height: 18,
+              filter:
+                theme.palette.mode === "dark"
+                  ? "brightness(0) invert(1)"
+                  : "none"
+            }}
           />
         ) : null}
         <div style={{ minWidth: 0 }}>
@@ -186,7 +194,7 @@ const AbilityTabs = ({ abilities }: { abilities: Pokemon["abilities"] }) => {
               color={isActive ? "secondary" : "default"}
               icon={
                 ability.isHidden ? (
-                  <VisibilityOffRoundedIcon sx={{ fontSize: 16 }} />
+                  <VisibilityOffRoundedIcon sx={{ fontSize: 16, pl: "3px" }} />
                 ) : undefined
               }
               label={`${ability.name}${ability.isHidden ? ` · ${strings.card.hiddenAbility}` : ""}`}
@@ -197,7 +205,8 @@ const AbilityTabs = ({ abilities }: { abilities: Pokemon["abilities"] }) => {
       <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 0 }}>
         <Typography variant="body2" color="text.secondary">
           {normalizeInlineText(
-            sorted[activeIndex]?.description || strings.card.noAbilityDescription
+            sorted[activeIndex]?.description ||
+              strings.card.noAbilityDescription
           )}
         </Typography>
       </Paper>
@@ -331,13 +340,12 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                         display: "flex",
                         flexDirection: "column",
                         flex: stage.length === 1 ? 1 : undefined,
-                        borderLeft: isCurrentEntry
-                          ? `3px solid ${theme.palette.primary.main}`
-                          : "3px solid transparent",
-                        borderTop:
-                          entryIndex > 0
-                            ? "1px solid rgba(16, 24, 40, 0.14)"
-                            : 0
+                        borderColor: "divider",
+                        borderLeft: "3px solid",
+                        borderLeftColor: isCurrentEntry
+                          ? theme.palette.primary.main
+                          : "transparent",
+                        borderTop: entryIndex > 0 ? "1px solid" : 0
                       }}
                     >
                       {variants.map((variant, variantIdx) => (
@@ -346,10 +354,8 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                           sx={{
                             px: 1.25,
                             py: 1,
-                            borderTop:
-                              variantIdx > 0
-                                ? "1px solid rgba(16, 24, 40, 0.14)"
-                                : 0
+                            borderColor: "divider",
+                            borderTop: variantIdx > 0 ? "1px solid" : 0
                           }}
                         >
                           <Stack spacing={0.75}>
@@ -383,7 +389,9 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                                     variant="caption"
                                     color="text.secondary"
                                   >
-                                    {strings.card.generationShort(entry.generation)}
+                                    {strings.card.generationShort(
+                                      entry.generation
+                                    )}
                                   </Typography>
                                 ) : null}
                               </div>
@@ -396,7 +404,11 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
                                 useFlexGap
                                 sx={{ minWidth: 0 }}
                               >
-                                {renderTypeChips(locale, entry.typeNames, "small")}
+                                {renderTypeChips(
+                                  locale,
+                                  entry.typeNames,
+                                  "small"
+                                )}
                               </Stack>
                             ) : null}
                             {variant.methodLabels.length ? (
@@ -469,23 +481,27 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
   );
 };
 
-const AvatarLike = ({ src, alt }: { src: string; alt: string }) => (
-  <Box
-    component="span"
-    sx={{
-      width: 24,
-      height: 24,
-      borderRadius: "50%",
-      bgcolor: "rgba(255,255,255,0.85)",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden"
-    }}
-  >
-    <Box component="img" src={src} alt={alt} sx={{ width: 18, height: 18 }} />
-  </Box>
-);
+const AvatarLike = ({ src, alt }: { src: string; alt: string }) => {
+  const theme = useTheme();
+
+  return (
+    <Box
+      component="span"
+      sx={{
+        width: 24,
+        height: 24,
+        borderRadius: "50%",
+        bgcolor: getFrostedSurface(theme, 0.85),
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden"
+      }}
+    >
+      <Box component="img" src={src} alt={alt} sx={{ width: 18, height: 18 }} />
+    </Box>
+  );
+};
 
 const renderTypeChips = (
   locale: "en" | "it",
@@ -581,7 +597,10 @@ const LoadingCardPreview = () => {
           height={18}
           sx={{
             borderRadius: 0,
-            bgcolor: alpha(theme.palette.common.white, 0.5)
+            bgcolor: getBackdropSurface(
+              theme,
+              theme.palette.mode === "dark" ? 0.18 : 0.5
+            )
           }}
         />
         <Skeleton
@@ -650,7 +669,10 @@ const LoadingCardMeta = () => {
         sx={{
           p: 1.25,
           borderRadius: 0,
-          bgcolor: alpha(theme.palette.common.white, 0.46)
+          bgcolor: getBackdropSurface(
+            theme,
+            theme.palette.mode === "dark" ? 0.2 : 0.46
+          )
         }}
       >
         <Stack spacing={1}>
@@ -730,6 +752,7 @@ export const PokemonCard = ({
     const primaryType = pokemon.types[0]?.type?.name;
     const accent = (primaryType && TYPE_COLORS[primaryType]) || "#ff6b2d";
     document.documentElement.style.setProperty("--type-accent", accent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pokemon?.rawName]);
 
   const baseImage =
@@ -740,6 +763,7 @@ export const PokemonCard = ({
     const spriteScale = getSpriteScale(pokemon.height);
     const root = document.documentElement;
     root.style.setProperty("--sprite-scale", String(spriteScale));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pokemon?.rawName]);
 
   const handleMainImageClick = () => {
@@ -881,7 +905,9 @@ export const PokemonCard = ({
               >
                 <Tooltip
                   title={
-                    isFavorite ? strings.card.removeSaved : strings.card.savePokemon
+                    isFavorite
+                      ? strings.card.removeSaved
+                      : strings.card.savePokemon
                   }
                 >
                   <IconButton
@@ -892,7 +918,9 @@ export const PokemonCard = ({
                     }}
                     onPointerDown={stopPointer}
                     aria-label={
-                      isFavorite ? strings.card.removeSaved : strings.card.savePokemon
+                      isFavorite
+                        ? strings.card.removeSaved
+                        : strings.card.savePokemon
                     }
                   >
                     {isFavorite ? (
@@ -1137,7 +1165,9 @@ export const PokemonCard = ({
                           opacity: 0.74
                         }}
                       >
-                        {showStats ? strings.card.hideStats : strings.card.peekStats}
+                        {showStats
+                          ? strings.card.hideStats
+                          : strings.card.peekStats}
                       </Button>
                     ) : null}
                   </Stack>

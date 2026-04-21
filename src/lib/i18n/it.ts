@@ -255,6 +255,10 @@ export const en = {
     desktopBody:
       "SmashDex only, focused on fast swiping, rich card details, and a cleaner mobile deck-building rhythm.",
     desktopLabel: "Single-mode mobile deck",
+    darkMode: "Dark mode",
+    lightMode: "Light mode",
+    switchToDark: "Switch to dark mode",
+    switchToLight: "Switch to light mode",
     languageLabel: sharedLabels.language.en,
     english: sharedLabels.english.en,
     italian: sharedLabels.italian.en
@@ -287,14 +291,14 @@ export const en = {
     unknown: "Unknown"
   },
   filters: {
-    overline: "Deck studio",
-    title: "SmashDex controls",
-    button: "Filters",
+    overline: "Options",
+    title: "Deck options",
+    button: "Options",
     generations: "Generations",
     selectAll: "Select all",
     types: "Types",
     allTypes: "All types",
-    deckOptions: "Deck options",
+    deckOptions: "Gameplay",
     smashPassMode: "Smash or pass mode",
     autoReveal: "Auto-reveal stats",
     shinyMode: "Shiny mode",
@@ -374,9 +378,9 @@ export const en = {
     badgeEmpty: "Your deck personality shows up here after a few rounds.",
     deckRhythm: "Deck rhythm",
     deckRhythmBody:
-      "Keep the card open as your field guide, save favorites for later, and use the filter drawer to tighten the pool when you want a more curated SmashDex run.",
+      "Keep the card open as your field guide, save favorites for later, and use the options drawer to tighten the pool when you want a more curated SmashDex run.",
     saveFavorites: "Save favorites",
-    filterByGen: "Filter by gen and type",
+    filterByGen: "Set gens and types",
     reshuffle: "Shuffle when the deck gets stale",
     recentPicks: "Recent picks",
     smashList: "Smash list",
@@ -410,7 +414,7 @@ export const en = {
     emptyTitle: "No Pokemon",
     emptyBody: "Choose more generations or types to keep swiping.",
     votingTip:
-      "Tip: swipe left or right to vote, tap the art to cycle images, and use the control drawer when you want filters, history, or exports.",
+      "Tip: swipe left or right to vote, tap the art to cycle images, and use the options drawer when you want setup, history, or exports.",
     guideTip:
       "Tip: use this as a field guide while Smash or Pass mode is off. You can still cycle the art, save favorites, and shuffle into a new pick whenever you want.",
     refreshDeck: "Refresh the deck",
@@ -439,6 +443,10 @@ export const it = {
     desktopBody:
       "SmashDex resta concentrato su swipe rapidi, dettagli ricchi nella carta e un ritmo piu pulito sul mobile.",
     desktopLabel: "Mazzo mobile unico",
+    darkMode: "Modalita scura",
+    lightMode: "Modalita chiara",
+    switchToDark: "Passa alla modalita scura",
+    switchToLight: "Passa alla modalita chiara",
     languageLabel: sharedLabels.language.it,
     english: sharedLabels.english.it,
     italian: sharedLabels.italian.it
@@ -471,14 +479,14 @@ export const it = {
     unknown: "Sconosciuto"
   },
   filters: {
-    overline: "Studio del mazzo",
-    title: "Controlli SmashDex",
-    button: "Filtri",
+    overline: "Opzioni",
+    title: "Opzioni del mazzo",
+    button: "Opzioni",
     generations: "Generazioni",
     selectAll: "Seleziona tutto",
     types: "Tipi",
     allTypes: "Tutti i tipi",
-    deckOptions: "Opzioni del mazzo",
+    deckOptions: "Gioco",
     smashPassMode: "Modalita smash o pass",
     autoReveal: "Mostra subito le statistiche",
     shinyMode: "Modalita shiny",
@@ -559,9 +567,9 @@ export const it = {
     badgeEmpty: "La personalita del tuo mazzo si vede qui dopo qualche round.",
     deckRhythm: "Ritmo del mazzo",
     deckRhythmBody:
-      "Tieni la carta aperta come guida, salva i preferiti per dopo e usa il pannello filtri quando vuoi un giro SmashDex piu curato.",
+      "Tieni la carta aperta come guida, salva i preferiti per dopo e usa il pannello opzioni quando vuoi un giro SmashDex piu curato.",
     saveFavorites: "Salva preferiti",
-    filterByGen: "Filtra per gen e tipo",
+    filterByGen: "Scegli gen e tipi",
     reshuffle: "Mischia quando il mazzo si spegne",
     recentPicks: "Scelte recenti",
     smashList: "Lista smash",
