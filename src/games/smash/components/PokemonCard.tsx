@@ -17,6 +17,7 @@ import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import KeyboardArrowUpRoundedIcon from "@mui/icons-material/KeyboardArrowUpRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import {
   Box,
   Button,
@@ -24,6 +25,7 @@ import {
   Collapse,
   IconButton,
   Paper,
+  Skeleton,
   Stack,
   Tooltip,
   Typography,
@@ -118,7 +120,6 @@ const VitalPill = ({
         py: 1,
         borderRadius: 0,
         minWidth: 0,
-        borderColor: highlighted ? "secondary.main" : "divider",
         bgcolor: highlighted
           ? alpha(theme.palette.secondary.main, 0.1)
           : "background.paper"
@@ -183,6 +184,11 @@ const AbilityTabs = ({ abilities }: { abilities: Pokemon["abilities"] }) => {
               clickable
               onClick={() => setActiveIndex(index)}
               color={isActive ? "secondary" : "default"}
+              icon={
+                ability.isHidden ? (
+                  <VisibilityOffRoundedIcon sx={{ fontSize: 16 }} />
+                ) : undefined
+              }
               label={`${capitalize(ability.name)}${ability.isHidden ? " · Hidden" : ""}`}
             />
           );
@@ -494,6 +500,7 @@ const renderTypeChips = (
           TYPE_COLORS[typeName] || "#f0f0f0",
           size === "small" ? 0.14 : 0.18
         ),
+        borderRadius: "999px",
         color: "text.primary",
         maxWidth: "100%",
         "& .MuiChip-label": {
@@ -549,6 +556,126 @@ const MegaCapabilityChip = () => {
   );
 };
 
+const LoadingCardPreview = () => {
+  const theme = useTheme();
+
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        minHeight: { xs: 240, sm: 320 },
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        bgcolor: "background.default"
+      }}
+    >
+      <Stack spacing={1.1} sx={{ width: "100%", maxWidth: 240, px: 2 }}>
+        <Skeleton
+          variant="rounded"
+          animation="wave"
+          height={18}
+          sx={{
+            borderRadius: 0,
+            bgcolor: alpha(theme.palette.common.white, 0.5)
+          }}
+        />
+        <Skeleton
+          variant="rounded"
+          animation="wave"
+          height={14}
+          width="72%"
+          sx={{ alignSelf: "center", borderRadius: 0 }}
+        />
+      </Stack>
+    </Box>
+  );
+};
+
+const LoadingCardMeta = () => {
+  const theme = useTheme();
+
+  return (
+    <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+      <Stack spacing={1.1} sx={{ minWidth: 0 }}>
+        <Skeleton
+          variant="rounded"
+          animation="wave"
+          width="48%"
+          height={38}
+          sx={{ borderRadius: 0 }}
+        />
+        <Stack
+          direction="row"
+          spacing={1}
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ mt: 0.5 }}
+        >
+          <Skeleton
+            variant="rounded"
+            animation="wave"
+            width={84}
+            height={24}
+            sx={{ borderRadius: 0 }}
+          />
+          <Skeleton
+            variant="rounded"
+            animation="wave"
+            width={128}
+            height={24}
+            sx={{ borderRadius: 0 }}
+          />
+        </Stack>
+      </Stack>
+
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        {Array.from({ length: 2 }, (_, index) => (
+          <Skeleton
+            key={`type-skeleton-${index}`}
+            variant="rounded"
+            animation="wave"
+            width={index === 0 ? 96 : 112}
+            height={32}
+            sx={{ borderRadius: "999px" }}
+          />
+        ))}
+      </Stack>
+
+      <Box
+        sx={{
+          p: 1.25,
+          borderRadius: 0,
+          bgcolor: alpha(theme.palette.common.white, 0.46)
+        }}
+      >
+        <Stack spacing={1}>
+          <Skeleton
+            variant="rounded"
+            animation="wave"
+            height={16}
+            sx={{ borderRadius: 0 }}
+          />
+          <Skeleton
+            variant="rounded"
+            animation="wave"
+            height={16}
+            sx={{ borderRadius: 0 }}
+          />
+          <Skeleton
+            variant="rounded"
+            animation="wave"
+            height={16}
+            width="68%"
+            sx={{ borderRadius: 0 }}
+          />
+        </Stack>
+      </Box>
+    </Stack>
+  );
+};
+
 const TypeBadges = ({ pokemon }: { pokemon: Pokemon }) => {
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -582,6 +709,7 @@ export const PokemonCard = ({
   pointerHandlers
 }: PokemonCardProps) => {
   const theme = useTheme();
+  const isLoadingCard = !pokemon && !emptyTitle;
   const [suppressImageClick, setSuppressImageClick] = React.useState(false);
   const [pendingStatsScroll, setPendingStatsScroll] = React.useState(false);
   const imageSwipeRef = React.useRef({
@@ -707,8 +835,7 @@ export const PokemonCard = ({
           position: "relative",
           overflow: "hidden",
           borderRadius: 0,
-          border: "1px solid",
-          borderColor: "divider",
+          paddingBottom: 2,
           bgcolor: "background.paper",
           boxShadow: isDragging ? "0 0 0 1px rgba(217, 45, 32, 0.35)" : "none",
           transition: "box-shadow 180ms ease",
@@ -798,89 +925,101 @@ export const PokemonCard = ({
                 bgcolor: "background.default"
               }}
             >
-              <IconButton
-                sx={{ position: "absolute", left: 12, zIndex: 2 }}
-                onClick={(event) => {
-                  stopPointer(event);
-                  onCycleImage("prev");
-                }}
-                onPointerDown={stopPointer}
-                aria-label="Previous artwork"
-              >
-                <ChevronLeftRoundedIcon />
-              </IconButton>
+              {/* artwork stage */}
+              {isLoadingCard ? (
+                <LoadingCardPreview />
+              ) : (
+                <>
+                  <IconButton
+                    sx={{ position: "absolute", left: 12, zIndex: 2 }}
+                    onClick={(event) => {
+                      stopPointer(event);
+                      onCycleImage("prev");
+                    }}
+                    onPointerDown={stopPointer}
+                    aria-label="Previous artwork"
+                  >
+                    <ChevronLeftRoundedIcon />
+                  </IconButton>
 
-              <Box
-                component="img"
-                alt={pokemon ? `${pokemon.name} artwork` : "Pokemon artwork"}
-                src={currentImage || baseImage || undefined}
-                onClick={handleMainImageClick}
-                onPointerDown={onImagePointerDown}
-                onPointerMove={onImagePointerMove}
-                onPointerUp={onImagePointerUp}
-                onPointerCancel={onImagePointerUp}
-                sx={{
-                  width: "100%",
-                  maxWidth: 280,
-                  maxHeight: { xs: 210, sm: 260 },
-                  objectFit: "contain",
-                  userSelect: "none"
-                }}
-              />
-
-              <IconButton
-                sx={{ position: "absolute", right: 12, zIndex: 2 }}
-                onClick={(event) => {
-                  stopPointer(event);
-                  onCycleImage("next");
-                }}
-                onPointerDown={stopPointer}
-                aria-label="Next artwork"
-              >
-                <ChevronRightRoundedIcon />
-              </IconButton>
-            </Paper>
-
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ width: "100%", minWidth: 0, overflowX: "auto", pb: 0.5 }}
-            >
-              {gallery.map((url) => (
-                <Box
-                  key={url}
-                  component="button"
-                  type="button"
-                  onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-                    stopPointer(event);
-                    onSelectImage(url);
-                  }}
-                  onPointerDown={stopPointer}
-                  sx={{
-                    border: "1px solid",
-                    borderColor:
-                      url === currentImage
-                        ? "secondary.main"
-                        : alpha(theme.palette.text.primary, 0.12),
-                    borderRadius: 0,
-                    p: 0.5,
-                    bgcolor:
-                      url === currentImage
-                        ? alpha(theme.palette.primary.main, 0.08)
-                        : "background.paper",
-                    cursor: "pointer",
-                    minWidth: 64
-                  }}
-                >
                   <Box
                     component="img"
-                    src={url}
-                    alt="Pokemon alternate artwork"
-                    sx={{ width: 48, height: 48, objectFit: "contain" }}
+                    alt={
+                      pokemon ? `${pokemon.name} artwork` : "Pokemon artwork"
+                    }
+                    src={currentImage || baseImage || undefined}
+                    onClick={handleMainImageClick}
+                    onPointerDown={onImagePointerDown}
+                    onPointerMove={onImagePointerMove}
+                    onPointerUp={onImagePointerUp}
+                    onPointerCancel={onImagePointerUp}
+                    sx={{
+                      width: "100%",
+                      maxWidth: 280,
+                      maxHeight: { xs: 210, sm: 260 },
+                      objectFit: "contain",
+                      userSelect: "none"
+                    }}
                   />
-                </Box>
-              ))}
-            </Stack>
+
+                  <IconButton
+                    sx={{ position: "absolute", right: 12, zIndex: 2 }}
+                    onClick={(event) => {
+                      stopPointer(event);
+                      onCycleImage("next");
+                    }}
+                    onPointerDown={stopPointer}
+                    aria-label="Next artwork"
+                  >
+                    <ChevronRightRoundedIcon />
+                  </IconButton>
+                </>
+              )}
+            </Paper>
+
+            {/* gallery strip */}
+            {isLoadingCard ? null : (
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ width: "100%", minWidth: 0, overflowX: "auto", pb: 0.5 }}
+              >
+                {gallery.map((url) => (
+                  <Box
+                    key={url}
+                    component="button"
+                    type="button"
+                    onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+                      stopPointer(event);
+                      onSelectImage(url);
+                    }}
+                    onPointerDown={stopPointer}
+                    sx={{
+                      border: "1px solid",
+                      borderColor:
+                        url === currentImage
+                          ? "secondary.main"
+                          : alpha(theme.palette.text.primary, 0.12),
+                      borderRadius: 0,
+                      p: 0.5,
+                      bgcolor:
+                        url === currentImage
+                          ? alpha(theme.palette.primary.main, 0.08)
+                          : "background.paper",
+                      cursor: "pointer",
+                      minWidth: 64
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={url}
+                      alt="Pokemon alternate artwork"
+                      sx={{ width: 48, height: 48, objectFit: "contain" }}
+                    />
+                  </Box>
+                ))}
+              </Stack>
+            )}
           </Stack>
 
           <Stack
@@ -896,148 +1035,157 @@ export const PokemonCard = ({
             }}
           >
             <Stack spacing={1} sx={{ minWidth: 0 }}>
-              <Stack spacing={1} sx={{ minWidth: 0 }}>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  justifyContent="space-between"
-                  alignItems="center"
-                  sx={{ minWidth: 0 }}
-                >
-                  <Stack
-                    direction="row"
-                    spacing={0.75}
-                    alignItems="center"
-                    sx={{ minWidth: 0, flex: 1, pr: 1 }}
-                  >
-                    <Typography
-                      variant="h2"
-                      sx={{
-                        fontSize: { xs: "1.7rem", md: "2rem" },
-                        overflowWrap: "anywhere",
-                        minWidth: 0,
-                        flex: "0 1 auto",
-                        maxWidth: "100%"
-                      }}
-                    >
-                      {pokemon?.name || emptyTitle || "Loading…"}
-                    </Typography>
-                    {pokemon ? (
-                      <Tooltip
-                        title={
-                          cryDisabled
-                            ? "No cry available"
-                            : cryPlaying
-                              ? "Playing cry"
-                              : "Play cry"
-                        }
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            color={cryPlaying ? "secondary" : "default"}
-                            disabled={cryDisabled}
-                            onClick={(event) => {
-                              stopPointer(event);
-                              onPlayCry();
-                            }}
-                            onPointerDown={stopPointer}
-                            aria-label={
-                              cryDisabled
-                                ? "No cry available for this Pokemon"
-                                : "Play Pokemon cry"
-                            }
-                            sx={{ flexShrink: 0 }}
-                          >
-                            {cryPlaying ? (
-                              <GraphicEqRoundedIcon />
-                            ) : (
-                              <GraphicEqOutlinedIcon />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    ) : null}
-                  </Stack>
-                  {pokemon ? (
-                    <Button
-                      variant="text"
-                      color="secondary"
-                      size="small"
-                      endIcon={
-                        showStats ? (
-                          <KeyboardArrowUpRoundedIcon fontSize="small" />
-                        ) : (
-                          <KeyboardArrowDownRoundedIcon fontSize="small" />
-                        )
-                      }
-                      onClick={handleStatsToggle}
-                      sx={{
-                        flexShrink: 0,
-                        alignSelf: "center",
-                        minWidth: 0,
-                        px: 0.75,
-                        py: 0.25,
-                        fontSize: "0.73rem",
-                        letterSpacing: 0.15,
-                        opacity: 0.74
-                      }}
-                    >
-                      {showStats ? "Hide stats" : "Peek stats"}
-                    </Button>
-                  ) : null}
-                </Stack>
-                <div style={{ minWidth: 0 }}>
+              {isLoadingCard ? (
+                <LoadingCardMeta />
+              ) : (
+                <Stack spacing={1} sx={{ minWidth: 0 }}>
+                  {/* name and quick actions */}
                   <Stack
                     direction="row"
                     spacing={1}
-                    flexWrap="wrap"
-                    useFlexGap
-                    sx={{ mt: 0.5 }}
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ minWidth: 0 }}
                   >
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      label={pokemon ? formatId(pokemon.id) : "#0000"}
-                    />
-                    {pokemon?.generation ? (
-                      <Chip
-                        size="small"
+                    <Stack
+                      direction="row"
+                      spacing={0.75}
+                      alignItems="center"
+                      sx={{ minWidth: 0, flex: 1, pr: 1 }}
+                    >
+                      <Typography
+                        variant="h2"
+                        sx={{
+                          fontSize: { xs: "1.7rem", md: "2rem" },
+                          overflowWrap: "anywhere",
+                          minWidth: 0,
+                          flex: "0 1 auto",
+                          maxWidth: "100%"
+                        }}
+                      >
+                        {pokemon?.name || emptyTitle || "Loading…"}
+                      </Typography>
+                      {pokemon ? (
+                        <Tooltip
+                          title={
+                            cryDisabled
+                              ? "No cry available"
+                              : cryPlaying
+                                ? "Playing cry"
+                                : "Play cry"
+                          }
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              color={cryPlaying ? "secondary" : "default"}
+                              disabled={cryDisabled}
+                              onClick={(event) => {
+                                stopPointer(event);
+                                onPlayCry();
+                              }}
+                              onPointerDown={stopPointer}
+                              aria-label={
+                                cryDisabled
+                                  ? "No cry available for this Pokemon"
+                                  : "Play Pokemon cry"
+                              }
+                              sx={{ flexShrink: 0 }}
+                            >
+                              {cryPlaying ? (
+                                <GraphicEqRoundedIcon />
+                              ) : (
+                                <GraphicEqOutlinedIcon />
+                              )}
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      ) : null}
+                    </Stack>
+                    {pokemon ? (
+                      <Button
+                        variant="text"
                         color="secondary"
-                        label={`Generation ${pokemon.generation}`}
-                      />
+                        size="small"
+                        endIcon={
+                          showStats ? (
+                            <KeyboardArrowUpRoundedIcon fontSize="small" />
+                          ) : (
+                            <KeyboardArrowDownRoundedIcon fontSize="small" />
+                          )
+                        }
+                        onClick={handleStatsToggle}
+                        sx={{
+                          flexShrink: 0,
+                          alignSelf: "center",
+                          minWidth: 0,
+                          px: 0.75,
+                          py: 0.25,
+                          fontSize: "0.73rem",
+                          letterSpacing: 0.15,
+                          opacity: 0.74
+                        }}
+                      >
+                        {showStats ? "Hide stats" : "Peek stats"}
+                      </Button>
                     ) : null}
-                    {pokemon?.category ? (
+                  </Stack>
+                  <div style={{ minWidth: 0 }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      flexWrap="wrap"
+                      useFlexGap
+                      sx={{ mt: 0.5 }}
+                    >
                       <Chip
                         size="small"
                         variant="outlined"
-                        label={
-                          CATEGORY_LABELS[pokemon.category] ||
-                          capitalize(pokemon.category || "standard")
-                        }
+                        label={pokemon ? formatId(pokemon.id) : "#0000"}
                       />
-                    ) : null}
-                  </Stack>
-                </div>
-              </Stack>
+                      {pokemon?.generation ? (
+                        <Chip
+                          size="small"
+                          color="secondary"
+                          label={`Generation ${pokemon.generation}`}
+                        />
+                      ) : null}
+                      {pokemon?.category && pokemon.category !== "standard" ? (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={
+                            CATEGORY_LABELS[pokemon.category] ||
+                            capitalize(pokemon.category || "standard")
+                          }
+                        />
+                      ) : null}
+                    </Stack>
+                  </div>
+                </Stack>
+              )}
 
+              {/* types and summary */}
               {pokemon ? <TypeBadges pokemon={pokemon} /> : null}
 
-              <Box
-                sx={{
-                  padding: 0.5,
-                  borderRadius: 0,
-                  bgcolor: "background.paper"
-                }}
-              >
-                <Typography variant="body1">
-                  {pokemon?.bio || emptyBody || ""}
-                </Typography>
-              </Box>
+              {isLoadingCard ? null : (
+                <Box
+                  sx={{
+                    padding: 0.5,
+                    borderRadius: 0,
+                    bgcolor: "background.paper"
+                  }}
+                >
+                  <Typography variant="body1">
+                    {pokemon?.bio || emptyBody || ""}
+                  </Typography>
+                </Box>
+              )}
 
               {pokemon ? <EvolutionLine pokemon={pokemon} /> : null}
             </Stack>
 
+            {/* expandable stats and abilities */}
             <Stack spacing={0.75} sx={{ mt: "auto", pt: 1 }}>
               <Collapse
                 in={showStats}

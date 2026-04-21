@@ -155,18 +155,50 @@ const setPokemonTypeCache = (name: string | undefined, typeNames: PokemonTypeNam
   pokemonTypeCache.set(cacheKey, [...typeNames]);
 };
 
+export const getDefaultPokemonRequestKey = (species: any, fallback = "") => {
+  const varieties = Array.isArray(species?.varieties) ? species.varieties : [];
+  const defaultVariety = varieties.find((entry: any) => entry?.is_default)?.pokemon?.name;
+  const firstVariety = varieties.find((entry: any) => entry?.pokemon?.name)?.pokemon?.name;
+
+  return String(defaultVariety || firstVariety || species?.name || fallback || "")
+    .trim()
+    .toLowerCase();
+};
+
+const loadPokemonDetails = async (key: string, speciesHint?: any) => {
+  try {
+    return await fetchJson<any>(`pokemon/${key}`);
+  } catch (error) {
+    const fallbackKey = getDefaultPokemonRequestKey(speciesHint, key);
+    if (!fallbackKey || fallbackKey === key) {
+      throw error;
+    }
+    return fetchJson<any>(`pokemon/${fallbackKey}`);
+  }
+};
+
 const loadPokemonTypeNames = async (name: string | undefined) => {
   const cacheKey = String(name || "").trim().toLowerCase();
   if (!cacheKey) return [] as PokemonTypeName[];
   if (pokemonTypeCache.has(cacheKey)) return pokemonTypeCache.get(cacheKey)!;
 
   try {
-    const payload = await fetchJson<any>(`pokemon/${cacheKey}`);
+    let payload: any;
+
+    try {
+      payload = await loadPokemonDetails(cacheKey);
+    } catch {
+      const species = await fetchJson<any>(`pokemon-species/${cacheKey}`);
+      payload = await loadPokemonDetails(cacheKey, species);
+    }
+
     const typeNames = normalizeTypeNames(payload?.types || []);
-    pokemonTypeCache.set(cacheKey, typeNames);
+    setPokemonTypeCache(cacheKey, typeNames);
+    setPokemonTypeCache(payload?.name || cacheKey, typeNames);
+    setPokemonTypeCache(payload?.species?.name || payload?.name || cacheKey, typeNames);
     return typeNames;
   } catch {
-    pokemonTypeCache.set(cacheKey, []);
+    setPokemonTypeCache(cacheKey, []);
     return [];
   }
 };
@@ -206,14 +238,26 @@ const loadEvolutionLine = async (chainUrl: string | undefined) => {
 
 export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> => {
   const key = String(nameOrId).toLowerCase();
-  const [details, species] = await Promise.all([
-    fetchJson<any>(`pokemon/${key}`),
-    fetchJson<any>(`pokemon-species/${key}`)
-  ]);
+  let details: any;
+  let species: any;
+
+  try {
+    details = await fetchJson<any>(`pokemon/${key}`);
+    const speciesKey = String(details?.species?.name || key).toLowerCase();
+    species = await fetchJson<any>(`pokemon-species/${speciesKey}`);
+  } catch {
+    species = await fetchJson<any>(`pokemon-species/${key}`);
+    details = await loadPokemonDetails(key, species);
+  }
 
   const typeNames = normalizeTypeNames(details?.types || []);
+  const speciesName = String(
+    species?.name || details?.species?.name || details?.name || key
+  ).trim().toLowerCase();
+
+  setPokemonTypeCache(key, typeNames);
   setPokemonTypeCache(details?.name || key, typeNames);
-  setPokemonTypeCache(details?.species?.name || details?.name || key, typeNames);
+  setPokemonTypeCache(speciesName, typeNames);
   const evolution = await loadEvolutionLine(species?.evolution_chain?.url);
   const abilities: PokemonAbility[] = (
     await Promise.all(
@@ -252,8 +296,8 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
 
   return {
     id: Number(details?.id) || 0,
-    rawName: String(details?.name || key),
-    name: capitalize(String(details?.name || key)),
+    rawName: speciesName,
+    name: capitalize(speciesName),
     generation,
     height: Number(details?.height) || 0,
     weight: Number(details?.weight) || 0,
@@ -262,7 +306,7 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
     category: getPrimaryCategory(species),
     speciesColor: species?.color?.name || "unknown",
     habitat: species?.habitat?.name || "unknown",
-    nameLength: String(details?.name || "").length,
+    nameLength: speciesName.length,
     abilities,
     categoryTags: getCategoryTags(species),
     cry: details?.cries?.latest || details?.cries?.legacy || "",
@@ -332,6 +376,21 @@ export const fetchTypeIndex = async (type: PokemonTypeName): Promise<Set<string>
       .map((entry: any) => String(entry?.pokemon?.name || ""))
       .filter((name: string) => Boolean(name))
   );
+
+  const aliasEntries = await Promise.all(
+    Array.from(names)
+      .filter((name) => name.includes("-"))
+      .map(async (name) => {
+        try {
+          const details = await loadPokemonDetails(name);
+          return String(details?.species?.name || "").trim().toLowerCase();
+        } catch {
+          return "";
+        }
+      })
+  );
+
+  aliasEntries.filter(Boolean).forEach((name) => names.add(name));
   typeIndexCache.set(type, names);
   return names;
 };

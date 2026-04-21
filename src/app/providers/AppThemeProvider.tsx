@@ -153,13 +153,17 @@ export const AppThemeProvider = ({
           ":root": {
             colorScheme: "light"
           },
+          html: {
+            backgroundColor: theme.palette.background.paper
+          },
           body: {
-            background: "linear-gradient(180deg, #e8edf3 0%, #dce3ea 100%)",
+            backgroundColor: theme.palette.background.paper,
             color: theme.palette.text.primary,
             minHeight: "var(--app-height, 100dvh)"
           },
           "#root": {
-            minHeight: "var(--app-height, 100dvh)"
+            minHeight: "var(--app-height, 100dvh)",
+            backgroundColor: theme.palette.background.paper
           },
           "::selection": {
             backgroundColor: alpha(theme.palette.primary.main, 0.22)

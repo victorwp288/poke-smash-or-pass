@@ -48,7 +48,8 @@ export const ShellLayout = () => {
         display: "flex",
         flexDirection: "column",
         overflowX: "clip",
-        pb: 0
+        pb: 0,
+        backgroundColor: "background.paper"
       }}
     >
       <Container
