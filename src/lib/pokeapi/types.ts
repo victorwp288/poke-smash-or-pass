@@ -60,6 +60,33 @@ export type Pokemon = {
   thumb: string;
 };
 
+export type PokemonFormOption = {
+  requestKey: string;
+  label: string;
+  shortLabel: string;
+  thumb: string;
+  isDefault: boolean;
+  isMega: boolean;
+  isRegional: boolean;
+  isBattleOnly: boolean;
+  typeNames: PokemonTypeName[];
+};
+
+export type PokemonMoveSpotlight = {
+  name: string;
+  label: string;
+  type: PokemonTypeName;
+  damageClass: "physical" | "special" | "status" | string;
+  power: number | null;
+  accuracy: number | null;
+  pp: number | null;
+  priority: number;
+  shortEffect: string;
+  learnMethod: string;
+  levelLearnedAt: number | null;
+  isStab: boolean;
+};
+
 export type PokeApiNamedResource<TName extends string = string> = {
   name: TName;
   url: string;

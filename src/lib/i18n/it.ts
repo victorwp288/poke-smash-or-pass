@@ -273,6 +273,10 @@ export const en = {
   },
   actionRow: {
     shuffle: "Shuffle",
+    hint: "Hint",
+    nextPokemon: "Next Pokemon",
+    hintProgress: (current: number, total: number) =>
+      `Hint ${current}/${total}`,
     pass: "Pass",
     smash: "Smash"
   },
@@ -300,6 +304,7 @@ export const en = {
     allTypes: "All types",
     deckOptions: "Gameplay",
     smashPassMode: "Smash or pass mode",
+    playSoloMode: "Guess dex",
     autoReveal: "Auto-reveal stats",
     shinyMode: "Shiny mode",
     dailyDeck: "Daily deck (20)",
@@ -330,11 +335,32 @@ export const en = {
   },
   card: {
     megaCapable: "Mega-capable",
+    forms: "Forms",
+    defaultForm: "Default",
+    altForm: "Variant",
     abilities: "Abilities",
     hiddenAbility: "Hidden",
     noAbilityDescription: "No description available yet.",
     noFlavorText: "No flavor text yet.",
     battleStats: "Battle stats",
+    fieldNotes: "Field notes",
+    battleIdentity: "Battle identity",
+    noMoveDescription: "No tactical notes are available for this move yet.",
+    movePower: "Power",
+    moveAccuracy: "Accuracy",
+    movePp: "PP",
+    stab: "STAB",
+    priorityValue: (value: number) => `Priority +${value}`,
+    evolutionStage: (stage: number) => `Stage ${stage}`,
+    physical: "Physical",
+    special: "Special",
+    status: "Status",
+    learnedByLevel: (level: number) =>
+      level > 0 ? `Level ${level}` : "Level-up",
+    learnedByMachine: "TM / Machine",
+    learnedByTutor: "Move Tutor",
+    learnedByEgg: "Egg Move",
+    learnedBySpecial: "Special learnset",
     total: (value: number) => `Total ${value}`,
     evolutionLine: "Evolution line",
     previousArtwork: "Previous artwork",
@@ -392,6 +418,7 @@ export const en = {
       keys: "Keys",
       undo: "Undo",
       shuffle: "Shuffle",
+      hint: "Hint",
       peek: "Peek"
     },
     helpValues: {
@@ -402,6 +429,8 @@ export const en = {
       undo: "Cmd/Ctrl + Z",
       shuffleEnabled: "Center button or swipe up on mobile",
       shuffleDisabled: "Center button",
+      guessHint: "Center button reveals the next clue",
+      peekLocked: "Clues unlock in the fixed hint order",
       peek: "Show or hide stats"
     },
     undo: (count: number) => (count ? `Undo ${count}` : "Undo"),
@@ -417,6 +446,8 @@ export const en = {
       "Tip: swipe left or right to vote, tap the art to cycle images, and use the options drawer when you want setup, history, or exports.",
     guideTip:
       "Tip: use this as a field guide while Smash or Pass mode is off. You can still cycle the art, save favorites, and shuffle into a new pick whenever you want.",
+    guessTip:
+      "Tip: in solo play the card stays censored and the center button reveals one clue at a time until you are ready for the next Pokemon.",
     refreshDeck: "Refresh the deck",
     shareTitle: "SmashDex"
   }
@@ -461,6 +492,10 @@ export const it = {
   },
   actionRow: {
     shuffle: "Mischia",
+    hint: "Indizio",
+    nextPokemon: "Pokemon successivo",
+    hintProgress: (current: number, total: number) =>
+      `Indizio ${current}/${total}`,
     pass: "Passa",
     smash: "Smash"
   },
@@ -488,6 +523,7 @@ export const it = {
     allTypes: "Tutti i tipi",
     deckOptions: "Gioco",
     smashPassMode: "Modalita smash o pass",
+    playSoloMode: "Guess dex",
     autoReveal: "Mostra subito le statistiche",
     shinyMode: "Modalita shiny",
     dailyDeck: "Mazzo giornaliero (20)",
@@ -519,11 +555,33 @@ export const it = {
   },
   card: {
     megaCapable: "Puo megaevolversi",
+    forms: "Forme",
+    defaultForm: "Base",
+    altForm: "Variante",
     abilities: "Abilita",
     hiddenAbility: "Nascosta",
     noAbilityDescription: "Nessuna descrizione disponibile.",
     noFlavorText: "Nessuna descrizione ancora.",
     battleStats: "Statistiche lotta",
+    fieldNotes: "Note sul campo",
+    battleIdentity: "Identita lotta",
+    noMoveDescription:
+      "Non ci sono ancora note tattiche disponibili per questa mossa.",
+    movePower: "Potenza",
+    moveAccuracy: "Precisione",
+    movePp: "PP",
+    stab: "STAB",
+    priorityValue: (value: number) => `Priorita +${value}`,
+    evolutionStage: (stage: number) => `Fase ${stage}`,
+    physical: "Fisica",
+    special: "Speciale",
+    status: "Stato",
+    learnedByLevel: (level: number) =>
+      level > 0 ? `Livello ${level}` : "Salita di livello",
+    learnedByMachine: "MT / Macchina",
+    learnedByTutor: "Tutor mosse",
+    learnedByEgg: "Mossa uovo",
+    learnedBySpecial: "Apprendimento speciale",
     total: (value: number) => `Totale ${value}`,
     evolutionLine: "Linea evolutiva",
     previousArtwork: "Artwork precedente",
@@ -581,6 +639,7 @@ export const it = {
       keys: "Tasti",
       undo: "Annulla",
       shuffle: "Mischia",
+      hint: "Indizio",
       peek: "Mostra dati"
     },
     helpValues: {
@@ -591,6 +650,8 @@ export const it = {
       undo: "Cmd/Ctrl + Z",
       shuffleEnabled: "Pulsante centrale o swipe in alto su mobile",
       shuffleDisabled: "Pulsante centrale",
+      guessHint: "Il pulsante centrale rivela l'indizio successivo",
+      peekLocked: "Gli indizi si sbloccano nell'ordine previsto",
       peek: "Mostra o nascondi le statistiche"
     },
     undo: (count: number) => (count ? `Annulla ${count}` : "Annulla"),
@@ -606,6 +667,8 @@ export const it = {
       "Suggerimento: scorri a sinistra o destra per votare, tocca l'artwork per cambiare immagine e usa il pannello controlli per filtri, cronologia o export.",
     guideTip:
       "Suggerimento: usa questa schermata come guida quando la modalita smash o pass e spenta. Puoi comunque cambiare artwork, salvare preferiti e mischiare quando vuoi.",
+    guessTip:
+      "Suggerimento: nella modalita solo gioco la card resta censurata e il pulsante centrale sblocca un indizio alla volta finche non vuoi passare al Pokemon successivo.",
     refreshDeck: "Rinfresca il mazzo",
     shareTitle: "SmashDex"
   }

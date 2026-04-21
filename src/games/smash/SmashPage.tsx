@@ -1,5 +1,5 @@
-import { useShell } from "@/app/providers/ShellProvider";
 import { useLocale } from "@/app/providers/LocaleProvider";
+import { useShell } from "@/app/providers/ShellProvider";
 import { ThemeModeToggle } from "@/components/shell/ThemeModeToggle";
 import { ActionRow } from "@/games/smash/components/ActionRow";
 import { FiltersPanel } from "@/games/smash/components/FiltersPanel";
@@ -41,7 +41,10 @@ import {
 } from "@/lib/i18n/it";
 import {
   GENERATION_ROSTER_ENTRIES_STALE_MS,
-  prefetchGenerationRosterEntries
+  prefetchGenerationRosterEntries,
+  usePokemon,
+  usePokemonForms,
+  usePokemonMoveSpotlight
 } from "@/lib/pokeapi/hooks";
 import type { Pokemon } from "@/lib/pokeapi/types";
 import { useLocalStorageState } from "@/lib/storage";
@@ -72,11 +75,24 @@ const SUMMARY_INTERVAL = 20;
 const SWIPE_ANIMATION_MS = 320;
 const SHUFFLE_ANIMATION_MS = 520;
 const GEN_TOTAL = 9;
+const MAX_GUESS_REVEAL_STAGE = 5;
+const POKEMON_REVEAL_STAGE = 6;
 
 type SwipeRecord = {
-  pokemon: Pokemon;
+  basePokemon: Pokemon;
+  displayedPokemon: Pokemon;
   direction: SwipeDirection;
+  formKey: string | null;
+  formLabel: string | null;
+  formIsDefault: boolean;
 };
+
+const getDisplayPokemonName = (
+  pokemonName: string,
+  formLabel: string | null,
+  formIsDefault: boolean
+) =>
+  formLabel && !formIsDefault ? `${pokemonName} · ${formLabel}` : pokemonName;
 
 const applySmashStats = (
   pokemon: Pokemon,
@@ -243,30 +259,50 @@ const drawRoundedRect = (
   ctx.closePath();
 };
 
-const buildSmashHelpBody = (smashPassMode: boolean, strings: LocaleStrings) => (
+const buildSmashHelpBody = ({
+  guessMode,
+  smashPassMode,
+  strings
+}: {
+  guessMode: boolean;
+  smashPassMode: boolean;
+  strings: LocaleStrings;
+}) => (
   <Stack spacing={1.2}>
-    {[
-      [
-        strings.page.helpRows.swipe,
-        smashPassMode
-          ? strings.page.helpValues.swipeEnabled
-          : strings.page.helpValues.swipeDisabled
-      ],
-      [
-        strings.page.helpRows.keys,
-        smashPassMode
-          ? strings.page.helpValues.keysEnabled
-          : strings.page.helpValues.keysDisabled
-      ],
-      [strings.page.helpRows.undo, strings.page.helpValues.undo],
-      [
-        strings.page.helpRows.shuffle,
-        smashPassMode
-          ? strings.page.helpValues.shuffleEnabled
-          : strings.page.helpValues.shuffleDisabled
-      ],
-      [strings.page.helpRows.peek, strings.page.helpValues.peek]
-    ].map(([label, value]) => (
+    {(guessMode
+      ? [
+          [strings.page.helpRows.swipe, strings.page.helpValues.swipeDisabled],
+          [strings.page.helpRows.keys, strings.page.helpValues.keysDisabled],
+          [strings.page.helpRows.hint, strings.page.helpValues.guessHint],
+          [
+            strings.page.helpRows.shuffle,
+            strings.page.helpValues.shuffleDisabled
+          ],
+          [strings.page.helpRows.peek, strings.page.helpValues.peekLocked]
+        ]
+      : [
+          [
+            strings.page.helpRows.swipe,
+            smashPassMode
+              ? strings.page.helpValues.swipeEnabled
+              : strings.page.helpValues.swipeDisabled
+          ],
+          [
+            strings.page.helpRows.keys,
+            smashPassMode
+              ? strings.page.helpValues.keysEnabled
+              : strings.page.helpValues.keysDisabled
+          ],
+          [strings.page.helpRows.undo, strings.page.helpValues.undo],
+          [
+            strings.page.helpRows.shuffle,
+            smashPassMode
+              ? strings.page.helpValues.shuffleEnabled
+              : strings.page.helpValues.shuffleDisabled
+          ],
+          [strings.page.helpRows.peek, strings.page.helpValues.peek]
+        ]
+    ).map(([label, value]) => (
       <Stack
         key={label}
         direction="row"
@@ -658,6 +694,10 @@ export const SmashPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const queryClient = useQueryClient();
   const pickerPrefetchedRef = React.useRef(false);
+  const lastBasePokemonKeyRef = React.useRef("");
+  const pendingRestoredFormKeyRef = React.useRef<string | null | undefined>(
+    undefined
+  );
 
   const initialFilters = React.useMemo(() => defaultFilters(), []);
   const initialOptions = React.useMemo(() => defaultOptions(), []);
@@ -692,6 +732,41 @@ export const SmashPage = () => {
   );
 
   const deck = useSmashDeck({ filters, options });
+  const isGuessMode = options.playSoloMode;
+  const [activeFormKey, setActiveFormKey] = React.useState<string | null>(null);
+
+  const formOptionsQuery = usePokemonForms(
+    deck.currentPokemon?.rawName || "",
+    locale,
+    Boolean(deck.currentPokemon?.rawName) && !isGuessMode
+  );
+  const activeFormPokemonQuery = usePokemon(
+    activeFormKey || "",
+    locale,
+    Boolean(activeFormKey)
+  );
+
+  const selectedForm = React.useMemo(() => {
+    const forms = formOptionsQuery.data ?? [];
+    if (!forms.length) return null;
+    if (activeFormKey) {
+      return forms.find((form) => form.requestKey === activeFormKey) || null;
+    }
+    return forms.find((form) => form.isDefault) || null;
+  }, [activeFormKey, formOptionsQuery.data]);
+
+  const effectiveFormKey =
+    !isGuessMode && activeFormKey && selectedForm ? activeFormKey : null;
+  const displayedPokemonKey =
+    effectiveFormKey || deck.currentPokemon?.rawName || "";
+  const displayedPokemon = effectiveFormKey
+    ? (activeFormPokemonQuery.data ?? deck.currentPokemon)
+    : deck.currentPokemon;
+  const selectedFormIsDefault =
+    !effectiveFormKey || Boolean(selectedForm?.isDefault);
+  const selectedFormLabel = effectiveFormKey
+    ? selectedForm?.label || null
+    : null;
 
   const [showStats, setShowStats] = React.useState(options.autoReveal);
   const [forcedSwipeStatus, setForcedSwipeStatus] = React.useState<
@@ -710,6 +785,7 @@ export const SmashPage = () => {
 
   const [panelOpen, setPanelOpen] = React.useState(false);
   const [pickerOpen, setPickerOpen] = React.useState(false);
+  const [guessRevealStage, setGuessRevealStage] = React.useState(0);
 
   const [swipeStack, setSwipeStack] = React.useState<SwipeRecord[]>([]);
   const [smashStreak, setSmashStreak] = React.useState(0);
@@ -717,6 +793,16 @@ export const SmashPage = () => {
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [cryPlaying, setCryPlaying] = React.useState(false);
+
+  const moveSpotlightQuery = usePokemonMoveSpotlight(
+    displayedPokemonKey,
+    locale,
+    Boolean(
+      ((!isGuessMode && showStats) ||
+        (isGuessMode && guessRevealStage >= MAX_GUESS_REVEAL_STAGE)) &&
+      displayedPokemonKey
+    )
+  );
 
   const stopCryPlayback = React.useCallback(() => {
     const audio = audioRef.current;
@@ -731,14 +817,14 @@ export const SmashPage = () => {
 
   React.useEffect(() => {
     stopCryPlayback();
-  }, [deck.currentPokemon?.rawName, stopCryPlayback]);
+  }, [displayedPokemonKey, stopCryPlayback]);
 
   React.useEffect(() => {
     return () => stopCryPlayback();
   }, [stopCryPlayback]);
 
   const playCry = React.useCallback(async () => {
-    const url = deck.currentPokemon?.cry || "";
+    const url = displayedPokemon?.cry || "";
     if (!url) return;
 
     let audio = audioRef.current;
@@ -768,7 +854,7 @@ export const SmashPage = () => {
     } catch {
       cleanup();
     }
-  }, [deck.currentPokemon?.cry, stopCryPlayback]);
+  }, [displayedPokemon?.cry, stopCryPlayback]);
 
   React.useEffect(() => {
     try {
@@ -785,9 +871,13 @@ export const SmashPage = () => {
   React.useEffect(() => {
     shell.setHelp({
       title: strings.shell.helpTitle,
-      body: buildSmashHelpBody(options.smashPassMode, strings)
+      body: buildSmashHelpBody({
+        guessMode: isGuessMode,
+        smashPassMode: options.smashPassMode,
+        strings
+      })
     });
-  }, [options.smashPassMode, shell, strings]);
+  }, [isGuessMode, options.smashPassMode, shell, strings]);
 
   const badges = React.useMemo(
     () =>
@@ -844,7 +934,7 @@ export const SmashPage = () => {
   }, [deck.rebuildQueue]);
 
   React.useEffect(() => {
-    const pokemon = deck.currentPokemon;
+    const pokemon = displayedPokemon;
     if (!pokemon) {
       setGallery([]);
       setCurrentImage(null);
@@ -861,30 +951,73 @@ export const SmashPage = () => {
     setGallery(nextGallery);
     setCurrentImage(baseImage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deck.currentPokemon?.rawName, options.shinyMode]);
+  }, [displayedPokemonKey, options.shinyMode]);
 
   React.useEffect(() => {
     setShowStats(options.autoReveal);
   }, [deck.currentPokemon?.rawName, options.autoReveal]);
 
-  const currentPokemonKey = deck.currentPokemon?.rawName
+  React.useEffect(() => {
+    setGuessRevealStage(0);
+  }, [deck.currentPokemon?.rawName, isGuessMode]);
+
+  React.useEffect(() => {
+    if (isGuessMode) {
+      setActiveFormKey(null);
+    }
+  }, [isGuessMode]);
+
+  React.useEffect(() => {
+    const nextBasePokemonKey = deck.currentPokemon?.rawName || "";
+    if (lastBasePokemonKeyRef.current === nextBasePokemonKey) return;
+
+    lastBasePokemonKeyRef.current = nextBasePokemonKey;
+    if (pendingRestoredFormKeyRef.current !== undefined) {
+      setActiveFormKey(pendingRestoredFormKeyRef.current);
+      pendingRestoredFormKeyRef.current = undefined;
+      return;
+    }
+
+    setActiveFormKey(null);
+  }, [deck.currentPokemon?.rawName]);
+
+  React.useEffect(() => {
+    if (!activeFormKey) return;
+    if (!formOptionsQuery.data?.length) return;
+    const formStillExists = formOptionsQuery.data.some(
+      (form) => form.requestKey === activeFormKey
+    );
+    if (!formStillExists) {
+      setActiveFormKey(null);
+    }
+  }, [activeFormKey, formOptionsQuery.data]);
+
+  const currentPokemonName = displayedPokemon
+    ? getDisplayPokemonName(
+        displayedPokemon.name,
+        selectedFormLabel,
+        selectedFormIsDefault
+      )
+    : "";
+
+  const currentPokemonKey = displayedPokemonKey
     ? getHistoryEntryKey({
-        key: deck.currentPokemon.rawName,
-        name: deck.currentPokemon.name
+        key: displayedPokemonKey,
+        name: currentPokemonName
       })
     : "";
 
   const isFavorite = Boolean(
-    deck.currentPokemon &&
+    displayedPokemon &&
     favorites.some((fav) => getHistoryEntryKey(fav) === currentPokemonKey)
   );
 
   const toggleFavorite = () => {
-    const pokemon = deck.currentPokemon;
+    const pokemon = displayedPokemon;
     if (!pokemon) return;
     const pokemonKey = getHistoryEntryKey({
-      key: pokemon.rawName,
-      name: pokemon.name
+      key: displayedPokemonKey,
+      name: currentPokemonName
     });
     setFavorites((prev) => {
       const existingIndex = prev.findIndex(
@@ -896,8 +1029,8 @@ export const SmashPage = () => {
         return next;
       }
       const entry: HistoryEntry = {
-        key: pokemon.rawName,
-        name: pokemon.name,
+        key: displayedPokemonKey,
+        name: currentPokemonName,
         thumb: pokemon.thumb || pokemon.images.main
       };
       return [entry, ...prev];
@@ -1013,12 +1146,17 @@ export const SmashPage = () => {
   };
 
   const recordSwipe = (direction: SwipeDirection) => {
-    const pokemon = deck.currentPokemon;
-    if (!pokemon) return;
+    const basePokemon = deck.currentPokemon;
+    const pokemon = displayedPokemon ?? basePokemon;
+    if (!pokemon || !basePokemon) return;
 
     const entry: HistoryEntry = {
-      key: pokemon.rawName,
-      name: pokemon.name,
+      key: displayedPokemonKey || pokemon.rawName,
+      name: getDisplayPokemonName(
+        pokemon.name,
+        selectedFormLabel,
+        selectedFormIsDefault
+      ),
       thumb: pokemon.thumb || pokemon.images.main
     };
 
@@ -1049,7 +1187,17 @@ export const SmashPage = () => {
     }
 
     setHistory(next);
-    setSwipeStack((prev) => [...prev, { pokemon, direction }]);
+    setSwipeStack((prev) => [
+      ...prev,
+      {
+        basePokemon,
+        displayedPokemon: pokemon,
+        direction,
+        formKey: activeFormKey,
+        formLabel: selectedFormLabel,
+        formIsDefault: selectedFormIsDefault
+      }
+    ]);
     if (direction === "smash") {
       setSmashStreak((prev) => prev + 1);
       setPassStreak(0);
@@ -1086,7 +1234,7 @@ export const SmashPage = () => {
 
     if (
       deck.currentPokemon?.rawName &&
-      last.pokemon.rawName !== deck.currentPokemon.rawName
+      last.basePokemon.rawName !== deck.currentPokemon.rawName
     ) {
       deck.prependToQueue(deck.currentPokemon.rawName);
     }
@@ -1105,7 +1253,7 @@ export const SmashPage = () => {
       next.smashCount = Math.max(0, next.smashCount - 1);
       next.smash.pop();
       const applied = applySmashStats(
-        last.pokemon,
+        last.displayedPokemon,
         -1,
         next.typeCounts as Record<string, number>,
         next.statTotals as Record<string, number>
@@ -1124,7 +1272,8 @@ export const SmashPage = () => {
     setPassStreak(streaks.passStreak);
 
     setHistory(next);
-    deck.setCurrentPokemon(last.pokemon);
+    pendingRestoredFormKeyRef.current = last.formKey;
+    deck.setCurrentPokemon(last.basePokemon);
   };
 
   const clearHistory = () => {
@@ -1158,6 +1307,7 @@ export const SmashPage = () => {
     disabled:
       isAnimatingSwipe ||
       isShuffling ||
+      isGuessMode ||
       !deck.currentPokemon ||
       !options.smashPassMode,
     isShuffling,
@@ -1186,6 +1336,27 @@ export const SmashPage = () => {
         : (idx + 1) % gallery.length;
     setCurrentImage(gallery[nextIndex]);
   };
+
+  const advanceGuess = React.useCallback(() => {
+    if (!deck.currentPokemon) return;
+
+    if (guessRevealStage < POKEMON_REVEAL_STAGE) {
+      setGuessRevealStage((prev) => Math.min(POKEMON_REVEAL_STAGE, prev + 1));
+      return;
+    }
+
+    stopCryPlayback();
+    setGuessRevealStage(0);
+    void deck.loadNext();
+  }, [deck, guessRevealStage, stopCryPlayback]);
+
+  const handleSelectForm = React.useCallback(
+    (form: { requestKey: string; isDefault: boolean }) => {
+      stopCryPlayback();
+      setActiveFormKey(form.isDefault ? null : form.requestKey);
+    },
+    [stopCryPlayback]
+  );
 
   const isDeckEmpty =
     !deck.currentPokemon && deck.statusText === strings.deck.empty;
@@ -1253,10 +1424,10 @@ export const SmashPage = () => {
         return;
       }
 
-      if (options.smashPassMode && event.key === "ArrowLeft") {
+      if (!isGuessMode && options.smashPassMode && event.key === "ArrowLeft") {
         swipe("pass");
       }
-      if (options.smashPassMode && event.key === "ArrowRight") {
+      if (!isGuessMode && options.smashPassMode && event.key === "ArrowRight") {
         swipe("smash");
       }
       if (event.key.toLowerCase() === "z" && (event.metaKey || event.ctrlKey)) {
@@ -1280,6 +1451,7 @@ export const SmashPage = () => {
     swipeStack.length,
     isAnimatingSwipe,
     isShuffling,
+    isGuessMode,
     options.smashPassMode,
     deck.currentPokemon?.rawName,
     gallery,
@@ -1425,7 +1597,7 @@ export const SmashPage = () => {
             }}
           >
             <PokemonCard
-              pokemon={deck.currentPokemon}
+              pokemon={displayedPokemon}
               emptyTitle={isDeckEmpty ? strings.page.emptyTitle : undefined}
               emptyBody={isDeckEmpty ? strings.page.emptyBody : undefined}
               isFavorite={isFavorite}
@@ -1437,14 +1609,24 @@ export const SmashPage = () => {
               transform={swipeApi.transform}
               currentImage={currentImage}
               gallery={gallery}
+              forms={formOptionsQuery.data ?? []}
+              formsLoading={formOptionsQuery.isLoading}
+              activeFormKey={activeFormKey}
+              selectedFormLabel={selectedFormLabel}
+              selectedFormIsDefault={selectedFormIsDefault}
+              moveSpotlight={moveSpotlightQuery.data ?? []}
+              moveSpotlightLoading={moveSpotlightQuery.isLoading}
+              guessMode={isGuessMode}
+              guessRevealStage={guessRevealStage}
               onSelectImage={setCurrentImage}
               onCycleImage={handleCycleImage}
+              onSelectForm={handleSelectForm}
               onToggleFavorite={toggleFavorite}
               onPreparePokemonPicker={warmPokemonPicker}
               onOpenPokemonPicker={() => setPickerOpen(true)}
               onToggleStats={onToggleStats}
               onPlayCry={playCry}
-              cryDisabled={!deck.currentPokemon?.cry}
+              cryDisabled={!displayedPokemon?.cry}
               cryPlaying={cryPlaying}
               pointerHandlers={swipeApi.handlers}
             />
@@ -1453,7 +1635,12 @@ export const SmashPage = () => {
           <ActionRow
             disabled={!deck.currentPokemon || isAnimatingSwipe || isShuffling}
             isShuffling={isShuffling}
-            votingEnabled={options.smashPassMode}
+            guessMode={isGuessMode}
+            hintStage={guessRevealStage}
+            maxHintStage={MAX_GUESS_REVEAL_STAGE}
+            votingEnabled={!isGuessMode && options.smashPassMode}
+            onHint={advanceGuess}
+            onNextGuess={advanceGuess}
             onPass={() => swipe("pass")}
             onSmash={() => swipe("smash")}
             onShuffle={shuffleDeck}
@@ -1470,18 +1657,37 @@ export const SmashPage = () => {
                 justifyContent="space-between"
               >
                 <Typography variant="body2" color="text.secondary">
-                  {options.smashPassMode
-                    ? strings.page.votingTip
-                    : strings.page.guideTip}
+                  {isGuessMode
+                    ? strings.page.guessTip
+                    : options.smashPassMode
+                      ? strings.page.votingTip
+                      : strings.page.guideTip}
                 </Typography>
                 <Button
                   color="secondary"
                   variant="text"
-                  startIcon={<ShuffleRoundedIcon />}
-                  onClick={shuffleDeck}
-                  disabled={isShuffling}
+                  startIcon={
+                    isGuessMode ? (
+                      guessRevealStage < MAX_GUESS_REVEAL_STAGE ? (
+                        <AutoAwesomeRoundedIcon />
+                      ) : (
+                        <TravelExploreRoundedIcon />
+                      )
+                    ) : (
+                      <ShuffleRoundedIcon />
+                    )
+                  }
+                  onClick={isGuessMode ? advanceGuess : shuffleDeck}
+                  disabled={isShuffling || !deck.currentPokemon}
                 >
-                  {strings.page.refreshDeck}
+                  {isGuessMode
+                    ? guessRevealStage < MAX_GUESS_REVEAL_STAGE
+                      ? strings.actionRow.hintProgress(
+                          guessRevealStage + 1,
+                          MAX_GUESS_REVEAL_STAGE
+                        )
+                      : strings.actionRow.nextPokemon
+                    : strings.page.refreshDeck}
                 </Button>
               </Stack>
             </Paper>

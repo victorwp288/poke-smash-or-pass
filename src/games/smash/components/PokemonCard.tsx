@@ -1,4 +1,6 @@
 import { useLocale } from "@/app/providers/LocaleProvider";
+import { FormRail } from "@/games/smash/components/FormRail";
+import { MoveSpotlight } from "@/games/smash/components/MoveSpotlight";
 import { getSpriteScale } from "@/games/smash/smashLogic";
 import { TYPE_COLORS, TYPE_ICON_FILES } from "@/lib/constants";
 import {
@@ -11,9 +13,13 @@ import {
   parseStoneMethodLabel,
   splitEvolutionEntryVariants
 } from "@/lib/pokeapi/evolution";
-import type { Pokemon } from "@/lib/pokeapi/types";
-import { getBackdropSurface, getFrostedSurface } from "@/lib/theme";
+import type {
+  Pokemon,
+  PokemonFormOption,
+  PokemonMoveSpotlight
+} from "@/lib/pokeapi/types";
 import { formatId, normalizeInlineText } from "@/lib/text";
+import { getBackdropSurface, getFrostedSurface } from "@/lib/theme";
 import type { PokemonTypeName } from "@/lib/typeChart";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
@@ -57,8 +63,18 @@ type PokemonCardProps = {
   transform: string;
   currentImage: string | null;
   gallery: string[];
+  forms?: PokemonFormOption[];
+  formsLoading?: boolean;
+  activeFormKey?: string | null;
+  selectedFormLabel?: string | null;
+  selectedFormIsDefault?: boolean;
+  moveSpotlight?: PokemonMoveSpotlight[];
+  moveSpotlightLoading?: boolean;
+  guessMode?: boolean;
+  guessRevealStage?: number;
   onSelectImage: (url: string) => void;
   onCycleImage: (direction: "prev" | "next") => void;
+  onSelectForm?: (form: PokemonFormOption) => void;
   onToggleFavorite: () => void;
   onPreparePokemonPicker?: () => void;
   onOpenPokemonPicker: () => void;
@@ -270,7 +286,15 @@ const StatList = ({ stats }: { stats: Pokemon["stats"] }) => {
   );
 };
 
-const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
+const EvolutionLine = ({
+  pokemon,
+  guessMode = false,
+  revealDetails = true
+}: {
+  pokemon: Pokemon;
+  guessMode?: boolean;
+  revealDetails?: boolean;
+}) => {
   const { locale, strings } = useLocale();
   const theme = useTheme();
   const stages = pokemon.evolution;
@@ -279,7 +303,136 @@ const EvolutionLine = ({ pokemon }: { pokemon: Pokemon }) => {
     (sum, stage) => sum + (stage?.length || 0),
     0
   );
-  if (totalEntries <= 1) return null;
+  if (totalEntries <= 1 && !guessMode) return null;
+
+  if (guessMode) {
+    const activeStageIndex = stages.findIndex((stage) =>
+      stage.some((entry) => entry.name === pokemon.rawName)
+    );
+
+    return (
+      <Stack spacing={0.9}>
+        <Typography variant="subtitle2">
+          {strings.card.evolutionLine}
+        </Typography>
+        <Box
+          data-card-swipe-ignore="true"
+          sx={{
+            overflowX: "auto",
+            overscrollBehaviorX: "contain",
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x",
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: "background.paper"
+          }}
+        >
+          {revealDetails ? (
+            <Stack
+              direction="row"
+              alignItems="stretch"
+              sx={{ width: "max-content", minWidth: "100%" }}
+            >
+              {stages.map((stage, stageIndex) => {
+                const isActiveStage = stageIndex === activeStageIndex;
+                return (
+                  <React.Fragment key={`guess-stage-${stageIndex}`}>
+                    {stageIndex > 0 ? (
+                      <Stack
+                        justifyContent="center"
+                        alignItems="center"
+                        sx={{
+                          px: 1,
+                          borderInline: "1px solid",
+                          borderColor: "divider",
+                          color: "text.secondary"
+                        }}
+                      >
+                        <ArrowForwardRoundedIcon />
+                      </Stack>
+                    ) : null}
+                    <Stack
+                      spacing={0.9}
+                      sx={{
+                        width: { xs: 180, sm: 220 },
+                        minWidth: { xs: 180, sm: 220 },
+                        p: 1.1,
+                        borderLeft: "3px solid",
+                        borderLeftColor: isActiveStage
+                          ? theme.palette.primary.main
+                          : "transparent",
+                        bgcolor: isActiveStage
+                          ? alpha(theme.palette.primary.main, 0.07)
+                          : "background.paper"
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        color={
+                          isActiveStage ? "primary.main" : "text.secondary"
+                        }
+                        sx={{ letterSpacing: 0.9, textTransform: "uppercase" }}
+                      >
+                        {strings.card.evolutionStage(stageIndex + 1)}
+                      </Typography>
+                      {stage.map((entry, entryIndex) => (
+                        <Paper
+                          key={`${entry.name}-${stageIndex}`}
+                          variant="outlined"
+                          sx={{ p: 1, borderRadius: 0 }}
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            sx={{
+                              opacity:
+                                entryIndex === 0 || stage.length === 1
+                                  ? 1
+                                  : 0.92
+                            }}
+                          >
+                            <Skeleton
+                              variant="rectangular"
+                              width={38}
+                              height={38}
+                              sx={{ borderRadius: 0, flexShrink: 0 }}
+                            />
+                            <Stack spacing={0.55} sx={{ flex: 1 }}>
+                              <Skeleton
+                                variant="rectangular"
+                                height={12}
+                                width="78%"
+                                sx={{ borderRadius: 0 }}
+                              />
+                              <Skeleton
+                                variant="rectangular"
+                                height={10}
+                                width="46%"
+                                sx={{ borderRadius: 0 }}
+                              />
+                            </Stack>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </React.Fragment>
+                );
+              })}
+            </Stack>
+          ) : (
+            <Box sx={{ p: 1.25 }}>
+              <Skeleton
+                variant="rectangular"
+                height={74}
+                sx={{ borderRadius: 0 }}
+              />
+            </Box>
+          )}
+        </Box>
+      </Stack>
+    );
+  }
 
   return (
     <Stack spacing={0.9}>
@@ -701,12 +854,221 @@ const LoadingCardMeta = () => {
   );
 };
 
-const TypeBadges = ({ pokemon }: { pokemon: Pokemon }) => {
+const GuessTitleMask = () => (
+  <Stack spacing={1} sx={{ minWidth: 0 }}>
+    <Skeleton
+      variant="rectangular"
+      width="56%"
+      height={34}
+      sx={{ borderRadius: 0 }}
+    />
+  </Stack>
+);
+
+const GuessSummaryMask = () => (
+  <Box
+    sx={{
+      padding: 0.75,
+      borderRadius: 0,
+      bgcolor: "background.paper"
+    }}
+  >
+    <Stack spacing={0.9}>
+      <Skeleton variant="rectangular" height={14} sx={{ borderRadius: 0 }} />
+      <Skeleton variant="rectangular" height={14} sx={{ borderRadius: 0 }} />
+      <Skeleton
+        variant="rectangular"
+        height={14}
+        width="66%"
+        sx={{ borderRadius: 0 }}
+      />
+    </Stack>
+  </Box>
+);
+
+const GuessMaskedPanel = ({
+  titleWidth = "42%",
+  lineWidths = ["100%", "82%"]
+}: {
+  titleWidth?: number | string;
+  lineWidths?: Array<number | string>;
+}) => (
+  <Stack spacing={1}>
+    <Skeleton
+      variant="rectangular"
+      height={16}
+      width={titleWidth}
+      sx={{ borderRadius: 0 }}
+    />
+    <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 0 }}>
+      <Stack spacing={0.85}>
+        {lineWidths.map((width, index) => (
+          <Skeleton
+            key={`${width}-${index}`}
+            variant="rectangular"
+            height={14}
+            width={width}
+            sx={{ borderRadius: 0 }}
+          />
+        ))}
+      </Stack>
+    </Paper>
+  </Stack>
+);
+
+const GuessMaskedVitalPill = () => (
+  <Paper variant="outlined" sx={{ px: 1.25, py: 1, borderRadius: 0 }}>
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Skeleton
+        variant="rectangular"
+        width={18}
+        height={18}
+        sx={{ borderRadius: 0 }}
+      />
+      <Stack spacing={0.45} sx={{ flex: 1 }}>
+        <Skeleton
+          variant="rectangular"
+          width="52%"
+          height={10}
+          sx={{ borderRadius: 0 }}
+        />
+        <Skeleton
+          variant="rectangular"
+          width="68%"
+          height={15}
+          sx={{ borderRadius: 0 }}
+        />
+      </Stack>
+    </Stack>
+  </Paper>
+);
+
+const GuessMaskedStatList = () => (
+  <Stack spacing={1.1}>
+    <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+      <Skeleton
+        variant="rectangular"
+        height={16}
+        width="34%"
+        sx={{ borderRadius: 0 }}
+      />
+      <Skeleton
+        variant="rectangular"
+        height={14}
+        width={62}
+        sx={{ borderRadius: 0 }}
+      />
+    </Stack>
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        gap: 1
+      }}
+    >
+      {Array.from({ length: 6 }, (_, index) => (
+        <Paper
+          key={`guess-stat-${index}`}
+          variant="outlined"
+          sx={{ px: 1.25, py: 1, borderRadius: 0 }}
+        >
+          <Stack spacing={0.6}>
+            <Skeleton
+              variant="rectangular"
+              height={10}
+              width="46%"
+              sx={{ borderRadius: 0 }}
+            />
+            <Skeleton
+              variant="rectangular"
+              height={16}
+              width="30%"
+              sx={{ borderRadius: 0 }}
+            />
+          </Stack>
+        </Paper>
+      ))}
+    </Box>
+  </Stack>
+);
+
+const GuessMaskedMoves = () => (
+  <Box
+    sx={{
+      display: "grid",
+      gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+      gap: 1
+    }}
+  >
+    {Array.from({ length: 2 }, (_, index) => (
+      <Paper
+        key={`guess-move-${index}`}
+        variant="outlined"
+        sx={{ p: 1.2, borderRadius: 0 }}
+      >
+        <Stack spacing={0.9}>
+          <Skeleton
+            variant="rectangular"
+            height={18}
+            width="58%"
+            sx={{ borderRadius: 0 }}
+          />
+          <Skeleton
+            variant="rectangular"
+            height={22}
+            width="38%"
+            sx={{ borderRadius: 0 }}
+          />
+          <Stack direction="row" spacing={0.75}>
+            <Skeleton
+              variant="rectangular"
+              height={38}
+              width={54}
+              sx={{ borderRadius: 0 }}
+            />
+            <Skeleton
+              variant="rectangular"
+              height={38}
+              width={54}
+              sx={{ borderRadius: 0 }}
+            />
+            <Skeleton
+              variant="rectangular"
+              height={38}
+              width={54}
+              sx={{ borderRadius: 0 }}
+            />
+          </Stack>
+          <Skeleton
+            variant="rectangular"
+            height={14}
+            width="100%"
+            sx={{ borderRadius: 0 }}
+          />
+          <Skeleton
+            variant="rectangular"
+            height={14}
+            width="76%"
+            sx={{ borderRadius: 0 }}
+          />
+        </Stack>
+      </Paper>
+    ))}
+  </Box>
+);
+
+const TypeBadges = ({
+  pokemon,
+  guessMode = false
+}: {
+  pokemon: Pokemon;
+  guessMode?: boolean;
+}) => {
   const { locale } = useLocale();
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
       {renderTypeChips(locale, pokemon.typeNames)}
-      {pokemon.canMegaEvolve ? <MegaCapabilityChip /> : null}
+      {pokemon.canMegaEvolve && !guessMode ? <MegaCapabilityChip /> : null}
     </Stack>
   );
 };
@@ -724,8 +1086,18 @@ export const PokemonCard = ({
   transform,
   currentImage,
   gallery,
+  forms = [],
+  formsLoading = false,
+  activeFormKey = null,
+  selectedFormLabel = null,
+  selectedFormIsDefault = true,
+  moveSpotlight = [],
+  moveSpotlightLoading = false,
+  guessMode = false,
+  guessRevealStage = 0,
   onSelectImage,
   onCycleImage,
+  onSelectForm,
   onToggleFavorite,
   onPreparePokemonPicker,
   onOpenPokemonPicker,
@@ -738,6 +1110,20 @@ export const PokemonCard = ({
   const { locale, strings } = useLocale();
   const theme = useTheme();
   const isLoadingCard = !pokemon && !emptyTitle;
+  const revealAllAfterHints = guessMode && guessRevealStage >= 6;
+  const revealMetaHint =
+    !guessMode || guessRevealStage >= 1 || revealAllAfterHints;
+  const revealEvolutionHint =
+    !guessMode || guessRevealStage >= 2 || revealAllAfterHints;
+  const revealVitalsHint =
+    !guessMode || guessRevealStage >= 3 || revealAllAfterHints;
+  const revealBattleStatsHint =
+    !guessMode || guessRevealStage >= 4 || revealAllAfterHints;
+  const revealMovesHint =
+    !guessMode || guessRevealStage >= 5 || revealAllAfterHints;
+  const revealPokemonName =
+    !guessMode || guessRevealStage >= 6 || revealAllAfterHints;
+
   const [suppressImageClick, setSuppressImageClick] = React.useState(false);
   const [pendingStatsScroll, setPendingStatsScroll] = React.useState(false);
   const imageSwipeRef = React.useRef({
@@ -892,61 +1278,63 @@ export const PokemonCard = ({
               p: 1.5
             }}
           >
-            <Stack
-              direction="row"
-              justifyContent="flex-end"
-              alignItems="center"
-              sx={{ minWidth: 0 }}
-            >
+            {!guessMode ? (
               <Stack
                 direction="row"
-                spacing={0.75}
-                sx={{ alignSelf: "flex-end" }}
+                justifyContent="flex-end"
+                alignItems="center"
+                sx={{ minWidth: 0 }}
               >
-                <Tooltip
-                  title={
-                    isFavorite
-                      ? strings.card.removeSaved
-                      : strings.card.savePokemon
-                  }
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  sx={{ alignSelf: "flex-end" }}
                 >
-                  <IconButton
-                    color={isFavorite ? "error" : "default"}
-                    onClick={(event) => {
-                      stopPointer(event);
-                      onToggleFavorite();
-                    }}
-                    onPointerDown={stopPointer}
-                    aria-label={
+                  <Tooltip
+                    title={
                       isFavorite
                         ? strings.card.removeSaved
                         : strings.card.savePokemon
                     }
                   >
-                    {isFavorite ? (
-                      <FavoriteRoundedIcon />
-                    ) : (
-                      <FavoriteBorderRoundedIcon />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={strings.card.openNavigator}>
-                  <IconButton
-                    onPointerEnter={onPreparePokemonPicker}
-                    onFocus={onPreparePokemonPicker}
-                    onClick={(event) => {
-                      stopPointer(event);
-                      onPreparePokemonPicker?.();
-                      onOpenPokemonPicker();
-                    }}
-                    onPointerDown={stopPointer}
-                    aria-label={strings.card.openNavigator}
-                  >
-                    <SearchRoundedIcon />
-                  </IconButton>
-                </Tooltip>
+                    <IconButton
+                      color={isFavorite ? "error" : "default"}
+                      onClick={(event) => {
+                        stopPointer(event);
+                        onToggleFavorite();
+                      }}
+                      onPointerDown={stopPointer}
+                      aria-label={
+                        isFavorite
+                          ? strings.card.removeSaved
+                          : strings.card.savePokemon
+                      }
+                    >
+                      {isFavorite ? (
+                        <FavoriteRoundedIcon />
+                      ) : (
+                        <FavoriteBorderRoundedIcon />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={strings.card.openNavigator}>
+                    <IconButton
+                      onPointerEnter={onPreparePokemonPicker}
+                      onFocus={onPreparePokemonPicker}
+                      onClick={(event) => {
+                        stopPointer(event);
+                        onPreparePokemonPicker?.();
+                        onOpenPokemonPicker();
+                      }}
+                      onPointerDown={stopPointer}
+                      aria-label={strings.card.openNavigator}
+                    >
+                      <SearchRoundedIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
               </Stack>
-            </Stack>
+            ) : null}
 
             <Paper
               variant="outlined"
@@ -963,7 +1351,7 @@ export const PokemonCard = ({
               }}
             >
               {/* artwork stage */}
-              {isLoadingCard ? (
+              {isLoadingCard || (guessMode && !revealPokemonName) ? (
                 <LoadingCardPreview />
               ) : (
                 <>
@@ -1017,7 +1405,7 @@ export const PokemonCard = ({
             </Paper>
 
             {/* gallery strip */}
-            {isLoadingCard ? null : (
+            {isLoadingCard || (guessMode && !revealPokemonName) ? null : (
               <Stack
                 direction="row"
                 spacing={1}
@@ -1059,6 +1447,15 @@ export const PokemonCard = ({
                 ))}
               </Stack>
             )}
+
+            {pokemon && onSelectForm && !guessMode ? (
+              <FormRail
+                forms={forms}
+                loading={formsLoading}
+                activeFormKey={activeFormKey}
+                onSelectForm={onSelectForm}
+              />
+            ) : null}
           </Stack>
 
           <Stack
@@ -1079,98 +1476,172 @@ export const PokemonCard = ({
               ) : (
                 <Stack spacing={1} sx={{ minWidth: 0 }}>
                   {/* name and quick actions */}
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    justifyContent="space-between"
-                    alignItems="center"
-                    sx={{ minWidth: 0 }}
-                  >
-                    <Stack
-                      direction="row"
-                      spacing={0.75}
-                      alignItems="center"
-                      sx={{ minWidth: 0, flex: 1, pr: 1 }}
-                    >
-                      <Typography
-                        variant="h2"
-                        sx={{
-                          fontSize: { xs: "1.7rem", md: "2rem" },
-                          overflowWrap: "anywhere",
-                          minWidth: 0,
-                          flex: "0 1 auto",
-                          maxWidth: "100%"
-                        }}
+                  {guessMode ? (
+                    revealPokemonName ? (
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems="center"
+                        sx={{ minWidth: 0 }}
                       >
-                        {pokemon?.name || emptyTitle || strings.common.loading}
-                      </Typography>
-                      {pokemon ? (
-                        <Tooltip
-                          title={
-                            cryDisabled
-                              ? strings.card.noCry
-                              : cryPlaying
-                                ? strings.card.cryPlaying
-                                : strings.card.playCry
-                          }
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          alignItems="center"
+                          sx={{ minWidth: 0, flex: 1, pr: 1 }}
                         >
-                          <span>
-                            <IconButton
-                              size="small"
-                              color={cryPlaying ? "secondary" : "default"}
-                              disabled={cryDisabled}
-                              onClick={(event) => {
-                                stopPointer(event);
-                                onPlayCry();
-                              }}
-                              onPointerDown={stopPointer}
-                              aria-label={
+                          <Typography
+                            variant="h2"
+                            sx={{
+                              fontSize: { xs: "1.7rem", md: "2rem" },
+                              overflowWrap: "anywhere",
+                              minWidth: 0,
+                              flex: "0 1 auto",
+                              maxWidth: "100%"
+                            }}
+                          >
+                            {pokemon?.name ||
+                              emptyTitle ||
+                              strings.common.loading}
+                          </Typography>
+                          {pokemon ? (
+                            <Tooltip
+                              title={
                                 cryDisabled
                                   ? strings.card.noCry
-                                  : strings.card.playCry
+                                  : cryPlaying
+                                    ? strings.card.cryPlaying
+                                    : strings.card.playCry
                               }
-                              sx={{ flexShrink: 0 }}
                             >
-                              {cryPlaying ? (
-                                <GraphicEqRoundedIcon />
-                              ) : (
-                                <GraphicEqOutlinedIcon />
-                              )}
-                            </IconButton>
-                          </span>
-                        </Tooltip>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color={cryPlaying ? "secondary" : "default"}
+                                  disabled={cryDisabled}
+                                  onClick={(event) => {
+                                    stopPointer(event);
+                                    onPlayCry();
+                                  }}
+                                  onPointerDown={stopPointer}
+                                  aria-label={
+                                    cryDisabled
+                                      ? strings.card.noCry
+                                      : strings.card.playCry
+                                  }
+                                  sx={{ flexShrink: 0 }}
+                                >
+                                  {cryPlaying ? (
+                                    <GraphicEqRoundedIcon />
+                                  ) : (
+                                    <GraphicEqOutlinedIcon />
+                                  )}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          ) : null}
+                        </Stack>
+                      </Stack>
+                    ) : (
+                      <GuessTitleMask />
+                    )
+                  ) : (
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      justifyContent="space-between"
+                      alignItems="center"
+                      sx={{ minWidth: 0 }}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        alignItems="center"
+                        sx={{ minWidth: 0, flex: 1, pr: 1 }}
+                      >
+                        <Typography
+                          variant="h2"
+                          sx={{
+                            fontSize: { xs: "1.7rem", md: "2rem" },
+                            overflowWrap: "anywhere",
+                            minWidth: 0,
+                            flex: "0 1 auto",
+                            maxWidth: "100%"
+                          }}
+                        >
+                          {pokemon?.name ||
+                            emptyTitle ||
+                            strings.common.loading}
+                        </Typography>
+                        {pokemon ? (
+                          <Tooltip
+                            title={
+                              cryDisabled
+                                ? strings.card.noCry
+                                : cryPlaying
+                                  ? strings.card.cryPlaying
+                                  : strings.card.playCry
+                            }
+                          >
+                            <span>
+                              <IconButton
+                                size="small"
+                                color={cryPlaying ? "secondary" : "default"}
+                                disabled={cryDisabled}
+                                onClick={(event) => {
+                                  stopPointer(event);
+                                  onPlayCry();
+                                }}
+                                onPointerDown={stopPointer}
+                                aria-label={
+                                  cryDisabled
+                                    ? strings.card.noCry
+                                    : strings.card.playCry
+                                }
+                                sx={{ flexShrink: 0 }}
+                              >
+                                {cryPlaying ? (
+                                  <GraphicEqRoundedIcon />
+                                ) : (
+                                  <GraphicEqOutlinedIcon />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        ) : null}
+                      </Stack>
+                      {pokemon ? (
+                        <Button
+                          variant="text"
+                          color="secondary"
+                          size="small"
+                          endIcon={
+                            showStats ? (
+                              <KeyboardArrowUpRoundedIcon fontSize="small" />
+                            ) : (
+                              <KeyboardArrowDownRoundedIcon fontSize="small" />
+                            )
+                          }
+                          onClick={handleStatsToggle}
+                          sx={{
+                            flexShrink: 0,
+                            alignSelf: "center",
+                            minWidth: 0,
+                            px: 0.75,
+                            py: 0.25,
+                            fontSize: "0.73rem",
+                            letterSpacing: 0.15,
+                            opacity: 0.74
+                          }}
+                        >
+                          {showStats
+                            ? strings.card.hideStats
+                            : strings.card.peekStats}
+                        </Button>
                       ) : null}
                     </Stack>
-                    {pokemon ? (
-                      <Button
-                        variant="text"
-                        color="secondary"
-                        size="small"
-                        endIcon={
-                          showStats ? (
-                            <KeyboardArrowUpRoundedIcon fontSize="small" />
-                          ) : (
-                            <KeyboardArrowDownRoundedIcon fontSize="small" />
-                          )
-                        }
-                        onClick={handleStatsToggle}
-                        sx={{
-                          flexShrink: 0,
-                          alignSelf: "center",
-                          minWidth: 0,
-                          px: 0.75,
-                          py: 0.25,
-                          fontSize: "0.73rem",
-                          letterSpacing: 0.15,
-                          opacity: 0.74
-                        }}
-                      >
-                        {showStats
-                          ? strings.card.hideStats
-                          : strings.card.peekStats}
-                      </Button>
-                    ) : null}
-                  </Stack>
+                  )}
                   <div style={{ minWidth: 0 }}>
                     <Stack
                       direction="row"
@@ -1179,34 +1650,103 @@ export const PokemonCard = ({
                       useFlexGap
                       sx={{ mt: 0.5 }}
                     >
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={pokemon ? formatId(pokemon.id) : "#0000"}
-                      />
-                      {pokemon?.generation ? (
-                        <Chip
-                          size="small"
-                          color="secondary"
-                          label={getGenerationLabel(locale, pokemon.generation)}
-                        />
-                      ) : null}
-                      {pokemon?.category && pokemon.category !== "standard" ? (
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={getCategoryLabel(locale, pokemon.category)}
-                        />
-                      ) : null}
+                      {guessMode ? (
+                        revealMetaHint ? (
+                          <>
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={pokemon ? formatId(pokemon.id) : "#0000"}
+                            />
+                            {pokemon?.generation ? (
+                              <Chip
+                                size="small"
+                                color="secondary"
+                                label={getGenerationLabel(
+                                  locale,
+                                  pokemon.generation
+                                )}
+                              />
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <Skeleton
+                              variant="rectangular"
+                              width={74}
+                              height={24}
+                              sx={{ borderRadius: 0 }}
+                            />
+                            <Skeleton
+                              variant="rectangular"
+                              width={112}
+                              height={24}
+                              sx={{ borderRadius: 0 }}
+                            />
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={pokemon ? formatId(pokemon.id) : "#0000"}
+                          />
+                          {pokemon?.generation ? (
+                            <Chip
+                              size="small"
+                              color="secondary"
+                              label={getGenerationLabel(
+                                locale,
+                                pokemon.generation
+                              )}
+                            />
+                          ) : null}
+                          {pokemon?.category &&
+                          pokemon.category !== "standard" ? (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={getCategoryLabel(locale, pokemon.category)}
+                            />
+                          ) : null}
+                          {selectedFormLabel && !selectedFormIsDefault ? (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              label={selectedFormLabel}
+                            />
+                          ) : null}
+                        </>
+                      )}
                     </Stack>
                   </div>
                 </Stack>
               )}
 
               {/* types and summary */}
-              {pokemon ? <TypeBadges pokemon={pokemon} /> : null}
+              {pokemon ? (
+                <TypeBadges pokemon={pokemon} guessMode={guessMode} />
+              ) : null}
 
-              {isLoadingCard ? null : (
+              {isLoadingCard ? null : guessMode ? (
+                revealPokemonName ? (
+                  <Box
+                    sx={{
+                      padding: 0.5,
+                      borderRadius: 0,
+                      bgcolor: "background.paper"
+                    }}
+                  >
+                    <Typography variant="body1">
+                      {pokemon?.bio || emptyBody || ""}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <GuessSummaryMask />
+                )
+              ) : (
                 <Box
                   sx={{
                     padding: 0.5,
@@ -1220,13 +1760,19 @@ export const PokemonCard = ({
                 </Box>
               )}
 
-              {pokemon ? <EvolutionLine pokemon={pokemon} /> : null}
+              {pokemon ? (
+                <EvolutionLine
+                  pokemon={pokemon}
+                  guessMode={guessMode}
+                  revealDetails={revealEvolutionHint}
+                />
+              ) : null}
             </Stack>
 
             {/* expandable stats and abilities */}
             <Stack spacing={0.75} sx={{ mt: "auto", pt: 1 }}>
               <Collapse
-                in={showStats}
+                in={showStats || (guessMode && revealVitalsHint)}
                 timeout={220}
                 unmountOnExit
                 onEntered={handleStatsEntered}
@@ -1241,26 +1787,76 @@ export const PokemonCard = ({
                         width: "100%"
                       }}
                     >
-                      <VitalPill
-                        label={strings.card.height}
-                        value={`${formatMeters(pokemon.height)} m`}
-                        icon="icons/height.svg"
-                        iconAlt={strings.card.height}
-                      />
-                      <VitalPill
-                        label={strings.card.weight}
-                        value={`${formatKilograms(pokemon.weight)} kg`}
-                        icon="icons/weight.svg"
-                        iconAlt={strings.card.weight}
-                      />
-                      <VitalPill
-                        label="BST"
-                        value={String(pokemon.baseStatTotal || 0)}
-                        highlighted
-                      />
+                      {revealVitalsHint ? (
+                        <>
+                          <VitalPill
+                            label={strings.card.height}
+                            value={`${formatMeters(pokemon.height)} m`}
+                            icon="icons/height.svg"
+                            iconAlt={strings.card.height}
+                          />
+                          <VitalPill
+                            label={strings.card.weight}
+                            value={`${formatKilograms(pokemon.weight)} kg`}
+                            icon="icons/weight.svg"
+                            iconAlt={strings.card.weight}
+                          />
+                          {revealBattleStatsHint ? (
+                            <VitalPill
+                              label="BST"
+                              value={String(pokemon.baseStatTotal || 0)}
+                              highlighted
+                            />
+                          ) : (
+                            <GuessMaskedVitalPill />
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <GuessMaskedVitalPill />
+                          <GuessMaskedVitalPill />
+                          <GuessMaskedVitalPill />
+                        </>
+                      )}
                     </Box>
-                    <AbilityTabs abilities={pokemon.abilities} />
-                    <StatList stats={pokemon.stats} />
+                    {guessMode ? (
+                      <>
+                        <GuessMaskedPanel
+                          titleWidth="28%"
+                          lineWidths={["100%", "72%"]}
+                        />
+                        {revealBattleStatsHint ? (
+                          <StatList stats={pokemon.stats} />
+                        ) : (
+                          <GuessMaskedStatList />
+                        )}
+                        {revealMovesHint ? (
+                          <MoveSpotlight
+                            moves={moveSpotlight}
+                            loading={moveSpotlightLoading}
+                          />
+                        ) : (
+                          <Stack spacing={1}>
+                            <Skeleton
+                              variant="rectangular"
+                              height={16}
+                              width="34%"
+                              sx={{ borderRadius: 0 }}
+                            />
+                            <GuessMaskedMoves />
+                          </Stack>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <AbilityTabs abilities={pokemon.abilities} />
+                        <StatList stats={pokemon.stats} />
+                        <MoveSpotlight
+                          moves={moveSpotlight}
+                          loading={moveSpotlightLoading}
+                        />
+                      </>
+                    )}
                   </Stack>
                 ) : null}
               </Collapse>

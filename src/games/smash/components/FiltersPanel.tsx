@@ -548,6 +548,11 @@ export const FiltersPanel = ({
         >
           <Stack spacing={1}>
             <OptionToggleRow
+              label={strings.filters.playSoloMode}
+              checked={options.playSoloMode}
+              onChange={(value) => onChangeOption("playSoloMode", value)}
+            />
+            <OptionToggleRow
               label={strings.filters.smashPassMode}
               checked={options.smashPassMode}
               onChange={(value) => onChangeOption("smashPassMode", value)}

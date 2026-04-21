@@ -18,6 +18,7 @@ export type SmashFiltersStorage = {
 
 export type SmashOptionsStorage = {
   smashPassMode: boolean;
+  playSoloMode: boolean;
   autoReveal: boolean;
   shinyMode: boolean;
   dailyDeck: boolean;

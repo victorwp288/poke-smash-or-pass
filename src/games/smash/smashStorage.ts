@@ -22,6 +22,7 @@ export const defaultFilters = (): SmashFiltersStorage => ({
 
 export const defaultOptions = (): SmashOptionsStorage => ({
   smashPassMode: true,
+  playSoloMode: false,
   autoReveal: true,
   shinyMode: false,
   dailyDeck: false,
@@ -132,6 +133,7 @@ export const parseOptions = (raw: unknown): SmashOptionsStorage => {
 
   return {
     smashPassMode: readBool("smashPassMode"),
+    playSoloMode: readBool("playSoloMode"),
     autoReveal: readBool("autoReveal"),
     shinyMode: readBool("shinyMode"),
     dailyDeck: readBool("dailyDeck"),

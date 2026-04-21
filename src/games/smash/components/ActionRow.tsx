@@ -1,7 +1,9 @@
+import { useLocale } from "@/app/providers/LocaleProvider";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
 import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
-import { useLocale } from "@/app/providers/LocaleProvider";
+import TravelExploreRoundedIcon from "@mui/icons-material/TravelExploreRounded";
 import { Box, Button, Paper, alpha, keyframes, useTheme } from "@mui/material";
 
 const pokeballSpin = keyframes`
@@ -72,27 +74,48 @@ const PokeballLoader = () => {
 export const ActionRow = ({
   disabled,
   isShuffling,
+  guessMode,
+  hintStage = 0,
+  maxHintStage = 0,
   votingEnabled,
+  onHint,
+  onNextGuess,
   onPass,
   onSmash,
   onShuffle
 }: {
   disabled: boolean;
   isShuffling: boolean;
+  guessMode?: boolean;
+  hintStage?: number;
+  maxHintStage?: number;
   votingEnabled: boolean;
+  onHint?: () => void;
+  onNextGuess?: () => void;
   onPass: () => void;
   onSmash: () => void;
   onShuffle: () => void;
 }) => {
   const { strings } = useLocale();
   const theme = useTheme();
+  const hasMoreHints = guessMode && hintStage < maxHintStage;
 
   const shuffleButton = (
     <Button
       color="secondary"
       variant="contained"
-      startIcon={<ShuffleRoundedIcon />}
-      onClick={onShuffle}
+      startIcon={
+        guessMode ? (
+          hasMoreHints ? (
+            <AutoAwesomeRoundedIcon />
+          ) : (
+            <TravelExploreRoundedIcon />
+          )
+        ) : (
+          <ShuffleRoundedIcon />
+        )
+      }
+      onClick={guessMode ? (hasMoreHints ? onHint : onNextGuess) : onShuffle}
       disabled={disabled}
       sx={{
         justifySelf: "center",
@@ -105,7 +128,11 @@ export const ActionRow = ({
         borderRadius: "999px"
       }}
     >
-      {strings.actionRow.shuffle}
+      {guessMode
+        ? hasMoreHints
+          ? strings.actionRow.hintProgress(hintStage + 1, maxHintStage)
+          : strings.actionRow.nextPokemon
+        : strings.actionRow.shuffle}
     </Button>
   );
 
@@ -125,7 +152,7 @@ export const ActionRow = ({
     );
   }
 
-  if (!votingEnabled) {
+  if (guessMode || !votingEnabled) {
     return (
       <Box
         sx={{
