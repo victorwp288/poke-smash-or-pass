@@ -38,6 +38,10 @@ import {
   type AppLocale,
   type LocaleStrings
 } from "@/lib/i18n/it";
+import {
+  GENERATION_ROSTER_ENTRIES_STALE_MS,
+  prefetchGenerationRosterEntries
+} from "@/lib/pokeapi/hooks";
 import type { Pokemon } from "@/lib/pokeapi/types";
 import { useLocalStorageState } from "@/lib/storage";
 import { TYPE_LIST, type PokemonTypeName } from "@/lib/typeChart";
@@ -59,6 +63,7 @@ import {
   useMediaQuery,
   useTheme
 } from "@mui/material";
+import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
 const SUMMARY_INTERVAL = 20;
@@ -625,6 +630,8 @@ export const SmashPage = () => {
   const { locale, strings } = useLocale();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const queryClient = useQueryClient();
+  const pickerPrefetchedRef = React.useRef(false);
 
   const initialFilters = React.useMemo(() => defaultFilters(), []);
   const initialOptions = React.useMemo(() => defaultOptions(), []);
@@ -1157,6 +1164,30 @@ export const SmashPage = () => {
     [deck, stopCryPlayback]
   );
 
+  const warmPokemonPicker = React.useCallback(() => {
+    void Promise.all(
+      Array.from({ length: GEN_TOTAL }, (_, index) =>
+        prefetchGenerationRosterEntries(
+          queryClient,
+          index + 1,
+          GENERATION_ROSTER_ENTRIES_STALE_MS
+        )
+      )
+    );
+  }, [queryClient]);
+
+  React.useEffect(() => {
+    if (pickerPrefetchedRef.current) return;
+    if (!deck.currentPokemon?.rawName) return;
+
+    pickerPrefetchedRef.current = true;
+    const timer = window.setTimeout(() => {
+      warmPokemonPicker();
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, [deck.currentPokemon?.rawName, warmPokemonPicker]);
+
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -1365,6 +1396,7 @@ export const SmashPage = () => {
               onSelectImage={setCurrentImage}
               onCycleImage={handleCycleImage}
               onToggleFavorite={toggleFavorite}
+              onPreparePokemonPicker={warmPokemonPicker}
               onOpenPokemonPicker={() => setPickerOpen(true)}
               onToggleStats={onToggleStats}
               onPlayCry={playCry}

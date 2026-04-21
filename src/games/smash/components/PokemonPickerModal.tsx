@@ -1,6 +1,11 @@
-import { fetchGenerationRosterEntries, type GenerationRosterEntry } from "@/lib/pokeapi/api";
 import { useLocale } from "@/app/providers/LocaleProvider";
 import { capitalize, formatId, normalizeGuessToken } from "@/lib/text";
+import {
+  GENERATION_ROSTER_ENTRIES_STALE_MS,
+  getCachedGenerationRosterEntries,
+  getGenerationRosterEntriesQueryOptions
+} from "@/lib/pokeapi/hooks";
+import type { GenerationRosterEntry } from "@/lib/pokeapi/api";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
@@ -26,7 +31,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
 const GEN_TOTAL = 9;
-const ROSTER_STALE_MS = 1000 * 60 * 60 * 24;
 
 type PokemonPickerTab = "all" | number;
 type GenerationRosterMap = Partial<Record<number, GenerationRosterEntry[]>>;
@@ -34,6 +38,17 @@ type GenerationRosterMap = Partial<Record<number, GenerationRosterEntry[]>>;
 const buildGenerationMap = (groups: GenerationRosterEntry[][]) =>
   groups.reduce<GenerationRosterMap>((map, entries, index) => {
     map[index + 1] = entries;
+    return map;
+  }, {});
+
+const getCachedRosterMap = (queryClient: ReturnType<typeof useQueryClient>) =>
+  Array.from({ length: GEN_TOTAL }, (_, index) => {
+    const genId = index + 1;
+    return [genId, getCachedGenerationRosterEntries(queryClient, genId)] as const;
+  }).reduce<GenerationRosterMap>((map, [genId, entries]) => {
+    if (entries?.length) {
+      map[genId] = entries;
+    }
     return map;
   }, {});
 
@@ -54,35 +69,42 @@ export const PokemonPickerModal = ({
 
   const [activeTab, setActiveTab] = React.useState<PokemonPickerTab>("all");
   const [searchValue, setSearchValue] = React.useState("");
-  const [rosters, setRosters] = React.useState<GenerationRosterMap>({});
+  const [rosters, setRosters] = React.useState<GenerationRosterMap>(() =>
+    getCachedRosterMap(queryClient)
+  );
   const [isLoading, setIsLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState("");
   const requestTokenRef = React.useRef(0);
 
-  const loadRosters = React.useCallback(async () => {
+  const loadRosters = React.useCallback(async (showLoading = true) => {
     const token = ++requestTokenRef.current;
-    setIsLoading(true);
+    if (showLoading) setIsLoading(true);
     setLoadError("");
 
     try {
       const groups = await Promise.all(
         Array.from({ length: GEN_TOTAL }, (_, index) => {
           const genId = index + 1;
-          return queryClient.fetchQuery<GenerationRosterEntry[]>({
-            queryKey: ["generation-roster-entries", genId],
-            queryFn: () => fetchGenerationRosterEntries(genId),
-            staleTime: ROSTER_STALE_MS
-          });
+          return queryClient.fetchQuery<GenerationRosterEntry[]>(
+            getGenerationRosterEntriesQueryOptions(
+              genId,
+              GENERATION_ROSTER_ENTRIES_STALE_MS
+            )
+          );
         })
       );
 
       if (token !== requestTokenRef.current) return;
       setRosters(buildGenerationMap(groups));
-      setIsLoading(false);
     } catch {
       if (token !== requestTokenRef.current) return;
-      setLoadError(strings.picker.listUnavailableBody);
-      setIsLoading(false);
+      if (showLoading) {
+        setLoadError(strings.picker.listUnavailableBody);
+      }
+    } finally {
+      if (token === requestTokenRef.current && showLoading) {
+        setIsLoading(false);
+      }
     }
   }, [queryClient, strings.picker.listUnavailableBody]);
 
@@ -90,8 +112,21 @@ export const PokemonPickerModal = ({
     if (!open) return;
     setActiveTab("all");
     setSearchValue("");
-    void loadRosters();
-  }, [loadRosters, open]);
+    const cached = getCachedRosterMap(queryClient);
+    const cachedCount = Object.keys(cached).length;
+
+    if (cachedCount > 0) {
+      setRosters(cached);
+      setIsLoading(false);
+    }
+
+    if (cachedCount >= GEN_TOTAL) {
+      setLoadError("");
+      return;
+    }
+
+    void loadRosters(cachedCount === 0);
+  }, [loadRosters, open, queryClient]);
 
   const allEntries = React.useMemo(
     () =>
@@ -135,6 +170,7 @@ export const PokemonPickerModal = ({
     <Dialog
       open={open}
       onClose={onClose}
+      keepMounted
       fullScreen
       PaperProps={{
         sx: {
@@ -244,26 +280,12 @@ export const PokemonPickerModal = ({
             scrollButtons="auto"
             allowScrollButtonsMobile
             sx={{
-              px: { xs: 1, sm: 1.5 },
-              minHeight: 60,
-              "& .MuiTabs-indicator": {
-                height: 3,
-                backgroundColor: theme.palette.info.main
-              },
+              px: { xs: 1, sm: 2 },
               "& .MuiTab-root": {
-                minHeight: 60,
-                paddingInline: 16,
+                minHeight: 56,
                 textTransform: "none",
                 fontWeight: 700,
-                color: theme.palette.text.secondary,
-                transition: theme.transitions.create([
-                  "background-color",
-                  "color"
-                ]),
-                "&.Mui-selected": {
-                  color: theme.palette.text.primary,
-                  backgroundColor: alpha(theme.palette.secondary.main, 0.07)
-                }
+                color: "inherit"
               }
             }}
           >

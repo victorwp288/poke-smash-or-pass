@@ -1,7 +1,24 @@
 import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchGenerationRoster, fetchPokemon, fetchTypeIndex } from "@/lib/pokeapi/api";
+import {
+  fetchGenerationRoster,
+  fetchGenerationRosterEntries,
+  fetchPokemon,
+  fetchTypeIndex,
+  type GenerationRosterEntry
+} from "@/lib/pokeapi/api";
 import type { Pokemon } from "@/lib/pokeapi/types";
 import type { PokemonTypeName } from "@/lib/typeChart";
+
+export const GENERATION_ROSTER_ENTRIES_STALE_MS = 1000 * 60 * 60 * 24;
+
+export const getGenerationRosterEntriesQueryOptions = (
+  genId: number,
+  staleTime = GENERATION_ROSTER_ENTRIES_STALE_MS
+) => ({
+  queryKey: ["generation-roster-entries", genId] as const,
+  queryFn: () => fetchGenerationRosterEntries(genId),
+  staleTime
+});
 
 export const usePokemon = (nameOrId: string | number) => {
   const key = String(nameOrId).toLowerCase();
@@ -44,3 +61,18 @@ export const getCachedPokemon = (client: QueryClient, nameOrId: string) => {
   const key = String(nameOrId).toLowerCase();
   return client.getQueryData<Pokemon>(["pokemon", key]) || null;
 };
+
+export const getCachedGenerationRosterEntries = (
+  client: QueryClient,
+  genId: number
+) =>
+  client.getQueryData<GenerationRosterEntry[]>(
+    getGenerationRosterEntriesQueryOptions(genId).queryKey
+  ) || null;
+
+export const prefetchGenerationRosterEntries = (
+  client: QueryClient,
+  genId: number,
+  staleTime = GENERATION_ROSTER_ENTRIES_STALE_MS
+) =>
+  client.prefetchQuery(getGenerationRosterEntriesQueryOptions(genId, staleTime));

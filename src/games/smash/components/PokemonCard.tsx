@@ -59,6 +59,7 @@ type PokemonCardProps = {
   onSelectImage: (url: string) => void;
   onCycleImage: (direction: "prev" | "next") => void;
   onToggleFavorite: () => void;
+  onPreparePokemonPicker?: () => void;
   onOpenPokemonPicker: () => void;
   onToggleStats: () => void;
   onPlayCry: () => void;
@@ -704,6 +705,7 @@ export const PokemonCard = ({
   onSelectImage,
   onCycleImage,
   onToggleFavorite,
+  onPreparePokemonPicker,
   onOpenPokemonPicker,
   onToggleStats,
   onPlayCry,
@@ -902,8 +904,11 @@ export const PokemonCard = ({
                 </Tooltip>
                 <Tooltip title={strings.card.openNavigator}>
                   <IconButton
+                    onPointerEnter={onPreparePokemonPicker}
+                    onFocus={onPreparePokemonPicker}
                     onClick={(event) => {
                       stopPointer(event);
+                      onPreparePokemonPicker?.();
                       onOpenPokemonPicker();
                     }}
                     onPointerDown={stopPointer}
