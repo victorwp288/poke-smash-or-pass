@@ -8,6 +8,7 @@ import {
   type AppLocale,
   getLocalizedEffectText,
   getLocalizedFlavorText,
+  getLatestLocalizedFlavorText,
   getLocalizedName,
   getLocaleStrings
 } from "@/lib/i18n/it";
@@ -75,6 +76,13 @@ const getAbilityInfo = (
   locale: AppLocale
 ) => {
   const strings = getLocaleStrings(locale);
+  const effectEntries = Array.isArray(abilityData?.effect_entries)
+    ? abilityData.effect_entries
+    : [];
+  const flavorEntries = Array.isArray(abilityData?.flavor_text_entries)
+    ? abilityData.flavor_text_entries
+    : [];
+
   return {
     name:
       getLocalizedName(
@@ -83,10 +91,12 @@ const getAbilityInfo = (
         capitalize(fallbackName)
       ) || capitalize(fallbackName),
     description:
-      getLocalizedEffectText(
-        Array.isArray(abilityData?.effect_entries) ? abilityData.effect_entries : [],
-        locale
-      ) || strings.card.noAbilityDescription
+      getLocalizedEffectText(effectEntries, locale, { allowFallback: false }) ||
+      getLatestLocalizedFlavorText(flavorEntries, locale, "", {
+        allowFallback: false
+      }) ||
+      getLocalizedEffectText(effectEntries, locale) ||
+      strings.card.noAbilityDescription
   };
 };
 

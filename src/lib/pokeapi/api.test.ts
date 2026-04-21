@@ -88,6 +88,87 @@ describe("fetchPokemon", () => {
     expect(mockedFetchJson).toHaveBeenCalledWith("pokemon-species/meowstic");
     expect(mockedFetchJson).toHaveBeenCalledWith("pokemon/meowstic-male");
   });
+
+  it("uses italian ability flavor text when italian effect prose is unavailable", async () => {
+    mockedFetchJson.mockImplementation(async (path: string) => {
+      if (path === "pokemon/oddish") {
+        return {
+          id: 43,
+          name: "oddish",
+          species: { name: "oddish" },
+          height: 5,
+          weight: 54,
+          types: [],
+          stats: [],
+          abilities: [
+            {
+              is_hidden: false,
+              slot: 1,
+              ability: { name: "stench", url: "ability/stench" }
+            }
+          ],
+          cries: {},
+          sprites: {
+            front_default: "thumb.png",
+            other: {}
+          }
+        };
+      }
+
+      if (path === "pokemon-species/oddish") {
+        return {
+          name: "oddish",
+          color: { name: "blue" },
+          habitat: { name: "grassland" },
+          evolution_chain: { url: "" },
+          flavor_text_entries: [],
+          names: [
+            { name: "Oddish", language: { name: "en" } },
+            { name: "Oddish", language: { name: "it" } }
+          ]
+        };
+      }
+
+      if (path === "ability/stench") {
+        return {
+          names: [
+            { name: "Stench", language: { name: "en" } },
+            { name: "Puzza", language: { name: "it" } }
+          ],
+          effect_entries: [
+            {
+              short_effect:
+                "Has a 10% chance of making target Pokemon flinch.",
+              language: { name: "en" }
+            }
+          ],
+          flavor_text_entries: [
+            {
+              flavor_text: "Vecchia descrizione.",
+              language: { name: "it" },
+              version_group: { name: "diamond-pearl" }
+            },
+            {
+              flavor_text: "Descrizione italiana piu recente.",
+              language: { name: "it" },
+              version_group: { name: "scarlet-violet" }
+            }
+          ]
+        };
+      }
+
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    const pokemon = await fetchPokemon("oddish", "it");
+
+    expect(pokemon.abilities).toEqual([
+      expect.objectContaining({
+        name: "Puzza",
+        description: "Descrizione italiana piu recente."
+      })
+    ]);
+  });
 });
 
 describe("fetchTypeIndex", () => {

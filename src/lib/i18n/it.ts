@@ -10,17 +10,33 @@ export const LOCALE_STORAGE_KEY = "smashdex_locale";
 const getLanguagePriority = (locale: AppLocale) =>
   locale === "it" ? (["it", "en"] as const) : (["en", "it"] as const);
 
-const findLocalizedEntry = <T,>(
+type LocalizedEntryOptions = {
+  allowFallback?: boolean;
+  preferLatest?: boolean;
+};
+
+const getLanguageCandidates = (
+  locale: AppLocale,
+  options: LocalizedEntryOptions = {}
+) => {
+  const priority = getLanguagePriority(locale);
+  return options.allowFallback === false ? [priority[0]] : priority;
+};
+
+const findLocalizedEntry = <T>(
   entries: T[],
   locale: AppLocale,
-  selector: (entry: T) => string
+  selector: (entry: T) => string,
+  options: LocalizedEntryOptions = {}
 ) => {
   const list = Array.isArray(entries) ? entries : [];
+  const source = options.preferLatest ? [...list].reverse() : list;
 
-  for (const language of getLanguagePriority(locale)) {
-    const match = list.find(
+  for (const language of getLanguageCandidates(locale, options)) {
+    const match = source.find(
       (entry: any) =>
-        entry?.language?.name === language && normalizeInlineText(selector(entry))
+        entry?.language?.name === language &&
+        normalizeInlineText(selector(entry))
     );
     if (match) {
       return normalizeInlineText(selector(match));
@@ -36,8 +52,9 @@ export const getLocalizedName = (
   fallback = ""
 ) => {
   return (
-    findLocalizedEntry(entries, locale, (entry: any) => String(entry?.name || "")) ||
-    fallback
+    findLocalizedEntry(entries, locale, (entry: any) =>
+      String(entry?.name || "")
+    ) || fallback
   );
 };
 
@@ -63,29 +80,39 @@ export const getLocalizedFlavorText = (
   return fallback;
 };
 
-export const getLocalizedEffectText = (entries: any[], locale: AppLocale) => {
-  const list = Array.isArray(entries) ? entries : [];
+export const getLatestLocalizedFlavorText = (
+  entries: any[],
+  locale: AppLocale,
+  fallback: string,
+  options: LocalizedEntryOptions = {}
+) =>
+  findLocalizedEntry(
+    entries,
+    locale,
+    (entry: any) => String(entry?.flavor_text || ""),
+    { ...options, preferLatest: true }
+  ) || fallback;
 
-  for (const language of getLanguagePriority(locale)) {
-    const shortEntry = list.find(
-      (entry: any) =>
-        entry?.language?.name === language &&
-        normalizeInlineText(entry?.short_effect)
-    );
-    if (shortEntry?.short_effect) {
-      return normalizeInlineText(shortEntry.short_effect);
-    }
-
-    const fullEntry = list.find(
-      (entry: any) =>
-        entry?.language?.name === language && normalizeInlineText(entry?.effect)
-    );
-    if (fullEntry?.effect) {
-      return normalizeInlineText(fullEntry.effect);
-    }
-  }
-
-  return "";
+export const getLocalizedEffectText = (
+  entries: any[],
+  locale: AppLocale,
+  options: LocalizedEntryOptions = {}
+) => {
+  return (
+    findLocalizedEntry(
+      entries,
+      locale,
+      (entry: any) => String(entry?.short_effect || ""),
+      options
+    ) ||
+    findLocalizedEntry(
+      entries,
+      locale,
+      (entry: any) => String(entry?.effect || ""),
+      options
+    ) ||
+    ""
+  );
 };
 
 const TYPE_LABELS: Record<AppLocale, Record<PokemonTypeName, string>> = {
@@ -277,8 +304,7 @@ export const en = {
     badges: "Badges",
     badgesEmpty: "Build streaks and favorites to earn badges.",
     favorites: "Favorites",
-    favoritesEmpty:
-      "Save a few Pokemon to build a clue deck for later.",
+    favoritesEmpty: "Save a few Pokemon to build a clue deck for later.",
     exportJson: "Export JSON",
     exportCsv: "Export CSV",
     shareCard: "Share card",
@@ -431,7 +457,7 @@ export const it = {
     smash: "Smash"
   },
   picker: {
-    title: "Salto Pokemon",
+    title: "Pokedex",
     close: "Chiudi il navigatore Pokemon",
     searchPlaceholder: "Cerca per nome o numero Pokedex",
     searchAria: "Cerca nella lista Pokemon",
@@ -530,8 +556,7 @@ export const it = {
     passStreak: (count: number) => `Serie pass ${count}`,
     noCurrentStreak: "Nessuna serie attiva",
     badgeTitle: "Badge partita",
-    badgeEmpty:
-      "La personalita del tuo mazzo si vede qui dopo qualche round.",
+    badgeEmpty: "La personalita del tuo mazzo si vede qui dopo qualche round.",
     deckRhythm: "Ritmo del mazzo",
     deckRhythmBody:
       "Tieni la carta aperta come guida, salva i preferiti per dopo e usa il pannello filtri quando vuoi un giro SmashDex piu curato.",

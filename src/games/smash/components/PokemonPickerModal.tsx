@@ -138,8 +138,16 @@ export const PokemonPickerModal = ({
       fullScreen
       PaperProps={{
         sx: {
-          background:
-            "radial-gradient(circle at top, rgba(255, 214, 170, 0.3), transparent 35%), linear-gradient(180deg, #f7f1e6 0%, #efe4d2 100%)"
+          background: `radial-gradient(circle at top, ${alpha(
+            theme.palette.info.main,
+            0.14
+          )} 0%, transparent 28%), linear-gradient(180deg, ${alpha(
+            theme.palette.common.white,
+            0.98
+          )} 0%, ${theme.palette.background.paper} 50%, ${alpha(
+            theme.palette.secondary.light,
+            0.18
+          )} 100%)`
         }
       }}
     >
@@ -150,11 +158,11 @@ export const PokemonPickerModal = ({
             py: { xs: 2, sm: 2.5 },
             borderBottom: "1px solid",
             borderColor: alpha(theme.palette.text.primary, 0.12),
-            bgcolor: alpha(theme.palette.background.paper, 0.74),
-            backdropFilter: "blur(12px)"
+            bgcolor: alpha(theme.palette.common.white, 0.84),
+            backdropFilter: "blur(14px)"
           }}
         >
-          <Stack spacing={2}>
+          <Stack spacing={1.75}>
             <Stack
               direction="row"
               spacing={1.5}
@@ -162,7 +170,18 @@ export const PokemonPickerModal = ({
               alignItems="center"
             >
               <Typography variant="h3">{strings.picker.title}</Typography>
-              <IconButton aria-label={strings.picker.close} onClick={onClose}>
+              <IconButton
+                aria-label={strings.picker.close}
+                onClick={onClose}
+                sx={{
+                  border: "1px solid",
+                  borderColor: alpha(theme.palette.secondary.main, 0.14),
+                  bgcolor: alpha(theme.palette.common.white, 0.72),
+                  "&:hover": {
+                    bgcolor: alpha(theme.palette.secondary.main, 0.08)
+                  }
+                }}
+              >
                 <CloseRoundedIcon />
               </IconButton>
             </Stack>
@@ -177,13 +196,27 @@ export const PokemonPickerModal = ({
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 0,
-                  bgcolor: alpha(theme.palette.common.white, 0.78)
+                  bgcolor: alpha(theme.palette.common.white, 0.94),
+                  transition: theme.transitions.create([
+                    "background-color",
+                    "border-color",
+                    "box-shadow"
+                  ]),
+                  "& fieldset": {
+                    borderColor: alpha(theme.palette.secondary.main, 0.14)
+                  },
+                  "&:hover fieldset": {
+                    borderColor: alpha(theme.palette.secondary.main, 0.22)
+                  },
+                  "&.Mui-focused": {
+                    boxShadow: `0 0 0 3px ${alpha(theme.palette.info.main, 0.12)}`
+                  }
                 }
               }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchRoundedIcon />
+                    <SearchRoundedIcon sx={{ color: "text.secondary" }} />
                   </InputAdornment>
                 )
               }}
@@ -200,8 +233,8 @@ export const PokemonPickerModal = ({
             zIndex: 2,
             borderBottom: "1px solid",
             borderColor: alpha(theme.palette.text.primary, 0.12),
-            bgcolor: alpha(theme.palette.background.paper, 0.92),
-            backdropFilter: "blur(12px)"
+            bgcolor: alpha(theme.palette.common.white, 0.9),
+            backdropFilter: "blur(14px)"
           }}
         >
           <Tabs
@@ -211,11 +244,26 @@ export const PokemonPickerModal = ({
             scrollButtons="auto"
             allowScrollButtonsMobile
             sx={{
-              px: { xs: 1, sm: 2 },
+              px: { xs: 1, sm: 1.5 },
+              minHeight: 60,
+              "& .MuiTabs-indicator": {
+                height: 3,
+                backgroundColor: theme.palette.info.main
+              },
               "& .MuiTab-root": {
-                minHeight: 56,
+                minHeight: 60,
+                paddingInline: 16,
                 textTransform: "none",
-                fontWeight: 700
+                fontWeight: 700,
+                color: theme.palette.text.secondary,
+                transition: theme.transitions.create([
+                  "background-color",
+                  "color"
+                ]),
+                "&.Mui-selected": {
+                  color: theme.palette.text.primary,
+                  backgroundColor: alpha(theme.palette.secondary.main, 0.07)
+                }
               }
             }}
           >
@@ -227,7 +275,15 @@ export const PokemonPickerModal = ({
           </Tabs>
         </Box>
 
-        <Box sx={{ flex: 1, overflowY: "auto", px: { xs: 1.5, sm: 2.5 }, py: 2 }}>
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: "auto",
+            px: 0,
+            py: 0,
+            bgcolor: theme.palette.common.white
+          }}
+        >
           {isLoading ? (
             <Stack
               spacing={1.5}
@@ -260,14 +316,7 @@ export const PokemonPickerModal = ({
               </Stack>
             </Paper>
           ) : filteredEntries.length ? (
-            <Box
-              sx={{
-                borderTop: "1px solid",
-                borderBottom: "1px solid",
-                borderColor: alpha(theme.palette.text.primary, 0.12),
-                bgcolor: alpha(theme.palette.common.white, 0.58)
-              }}
-            >
+            <Stack sx={{ px: 0, py: 0 }}>
               {filteredEntries.map((entry) => {
                 const isCurrent =
                   normalizeGuessToken(entry.name) === currentKey;
@@ -282,34 +331,72 @@ export const PokemonPickerModal = ({
                       justifyContent: "space-between",
                       alignItems: "center",
                       gap: 1,
-                      px: { xs: 1.5, sm: 2 },
-                      py: 1.35,
+                      minHeight: { xs: 84, sm: 90 },
+                      px: { xs: 2, sm: 3 },
+                      py: 2.2,
                       borderRadius: 0,
                       textTransform: "none",
-                      bgcolor: isCurrent
-                        ? alpha(theme.palette.secondary.main, 0.08)
-                        : "transparent",
+                      bgcolor: alpha(theme.palette.common.white, 0.84),
                       color: "text.primary",
-                      borderBottom: showDivider ? "1px solid" : "none",
-                      borderColor: alpha(theme.palette.text.primary, 0.12),
+                      borderTop: showDivider ? "1px solid" : "none",
+                      borderBottom: "1px solid",
+                      borderLeft: "none",
+                      borderRight: "none",
+                      borderColor: isCurrent
+                        ? alpha(theme.palette.info.main, 0.32)
+                        : alpha(theme.palette.secondary.main, 0.12),
+                      boxShadow: isCurrent
+                        ? `inset 4px 0 0 ${theme.palette.info.main}`
+                        : "none",
+                      transition: theme.transitions.create([
+                        "background-color",
+                        "border-color",
+                        "box-shadow",
+                        "transform"
+                      ]),
                       "&:hover": {
-                        bgcolor: alpha(theme.palette.secondary.main, 0.06)
+                        bgcolor: alpha(theme.palette.info.main, 0.06),
+                        borderColor: alpha(theme.palette.info.main, 0.22)
+                      },
+                      "&:active": {
+                        transform: "translateY(1px)"
                       }
                     }}
                   >
                     <Stack
-                      direction="row"
-                      spacing={1.5}
-                      alignItems="center"
+                      spacing={0.55}
                       sx={{ minWidth: 0, flex: 1, textAlign: "left" }}
                     >
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ minWidth: 68, flexShrink: 0 }}
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        flexWrap="wrap"
+                        useFlexGap
                       >
-                        {entry.id ? formatId(entry.id) : strings.picker.unknown}
-                      </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
+                        >
+                          {entry.id ? formatId(entry.id) : strings.picker.unknown}
+                        </Typography>
+                        {entry.generation ? (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              px: 0.75,
+                              py: 0.15,
+                              bgcolor: alpha(theme.palette.secondary.main, 0.06),
+                              color: "text.secondary",
+                              letterSpacing: "0.06em",
+                              textTransform: "uppercase"
+                            }}
+                          >
+                            {strings.card.generationShort(entry.generation)}
+                          </Typography>
+                        ) : null}
+                      </Stack>
                       <Typography
                         variant="body1"
                         fontWeight={700}
@@ -319,12 +406,15 @@ export const PokemonPickerModal = ({
                       </Typography>
                     </Stack>
                     <ChevronRightRoundedIcon
-                      sx={{ color: "text.secondary", flexShrink: 0 }}
+                      sx={{
+                        color: isCurrent ? "info.main" : "text.secondary",
+                        flexShrink: 0
+                      }}
                     />
                   </Button>
                 );
               })}
-            </Box>
+            </Stack>
           ) : (
             <Paper
               variant="outlined"
