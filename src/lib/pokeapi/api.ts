@@ -3,16 +3,25 @@ import {
   PARADOX_SPECIES,
   ULTRA_BEAST_SPECIES
 } from "@/lib/constants";
+import {
+  DEFAULT_LOCALE,
+  type AppLocale,
+  getLocalizedEffectText,
+  getLocalizedFlavorText,
+  getLocalizedName,
+  getLocaleStrings
+} from "@/lib/i18n/it";
 import { fetchJson } from "@/lib/pokeapi/client";
 import { normalizeEvolutionChain } from "@/lib/pokeapi/evolution";
 import type { EvolutionStages, Pokemon, PokemonAbility } from "@/lib/pokeapi/types";
 import type { PokemonTypeName } from "@/lib/typeChart";
-import { capitalize, normalizeInlineText } from "@/lib/text";
+import { capitalize } from "@/lib/text";
 
-const abilityEffectCache = new Map<string, string>();
+const abilityInfoCache = new Map<string, { name: string; description: string }>();
 const evolutionChainCache = new Map<string, EvolutionStages>();
 const genRosterCache = new Map<number, string[]>();
 const genRosterEntryCache = new Map<number, GenerationRosterEntry[]>();
+const speciesCache = new Map<string, any>();
 const typeIndexCache = new Map<PokemonTypeName, Set<string>>();
 const pokemonTypeCache = new Map<string, PokemonTypeName[]>();
 
@@ -22,20 +31,9 @@ export type GenerationRosterEntry = {
   generation: number;
 };
 
-const chooseFlavorText = (entries: any[]) => {
-  const english = (Array.isArray(entries) ? entries : []).filter(
-    (entry) => entry?.language?.name === "en"
-  );
-  const unique = Array.from(
-    new Set(
-      english
-        .map((entry) =>
-          String(entry?.flavor_text || "").replace(/\s+/g, " ").trim()
-        )
-        .filter(Boolean)
-    )
-  );
-  return unique[0] || "No flavor text yet.";
+const chooseFlavorText = (entries: any[], locale: AppLocale) => {
+  const strings = getLocaleStrings(locale);
+  return getLocalizedFlavorText(entries, locale, strings.card.noFlavorText);
 };
 
 const normalizeSprites = (sprites: any) => {
@@ -71,43 +69,57 @@ const normalizeTypeNames = (types: any): PokemonTypeName[] =>
     .map((entry: any) => entry?.type?.name)
     .filter(Boolean);
 
-const getAbilityDescription = (abilityData: any) => {
-  const entries = Array.isArray(abilityData?.effect_entries)
-    ? abilityData.effect_entries
-    : [];
-  const englishShort = entries.find(
-    (entry: any) => entry?.language?.name === "en" && entry?.short_effect
-  );
-  if (englishShort?.short_effect) {
-    return normalizeInlineText(englishShort.short_effect);
-  }
-  const english = entries.find(
-    (entry: any) => entry?.language?.name === "en" && entry?.effect
-  );
-  if (english?.effect) {
-    return normalizeInlineText(english.effect);
-  }
-  return "";
+const getAbilityInfo = (
+  abilityData: any,
+  fallbackName: string,
+  locale: AppLocale
+) => {
+  const strings = getLocaleStrings(locale);
+  return {
+    name:
+      getLocalizedName(
+        Array.isArray(abilityData?.names) ? abilityData.names : [],
+        locale,
+        capitalize(fallbackName)
+      ) || capitalize(fallbackName),
+    description:
+      getLocalizedEffectText(
+        Array.isArray(abilityData?.effect_entries) ? abilityData.effect_entries : [],
+        locale
+      ) || strings.card.noAbilityDescription
+  };
 };
 
-const loadAbilityDescription = async (abilityRef: { name: string; url?: string }) => {
+const loadAbilityInfo = async (
+  abilityRef: { name: string; url?: string },
+  locale: AppLocale
+) => {
+  const strings = getLocaleStrings(locale);
   const abilityName = abilityRef?.name || "";
   const abilityUrl = abilityRef?.url || "";
-  const cacheKey = abilityUrl || abilityName;
-  if (!cacheKey) return "";
-  if (abilityEffectCache.has(cacheKey)) return abilityEffectCache.get(cacheKey)!;
+  const baseKey = abilityUrl || abilityName;
+  if (!baseKey) {
+    return {
+      name: capitalize(abilityName),
+      description: strings.card.noAbilityDescription
+    };
+  }
+  const cacheKey = `${baseKey}|${locale}`;
+  if (abilityInfoCache.has(cacheKey)) return abilityInfoCache.get(cacheKey)!;
 
   try {
     const payload = await fetchJson<any>(
       abilityUrl || `ability/${abilityName}`
     );
-    const description =
-      getAbilityDescription(payload) || "No description available yet.";
-    abilityEffectCache.set(cacheKey, description);
-    return description;
+    const info = getAbilityInfo(payload, abilityName, locale);
+    abilityInfoCache.set(cacheKey, info);
+    return info;
   } catch {
-    const fallback = "No description available yet.";
-    abilityEffectCache.set(cacheKey, fallback);
+    const fallback = {
+      name: capitalize(abilityName),
+      description: strings.card.noAbilityDescription
+    };
+    abilityInfoCache.set(cacheKey, fallback);
     return fallback;
   }
 };
@@ -153,6 +165,24 @@ const setPokemonTypeCache = (name: string | undefined, typeNames: PokemonTypeNam
   const cacheKey = String(name || "").trim().toLowerCase();
   if (!cacheKey) return;
   pokemonTypeCache.set(cacheKey, [...typeNames]);
+};
+
+const loadPokemonSpecies = async (nameOrId: string | number) => {
+  const cacheKey = String(nameOrId || "").trim().toLowerCase();
+  if (!cacheKey) return null;
+  if (speciesCache.has(cacheKey)) return speciesCache.get(cacheKey);
+
+  const payload = await fetchJson<any>(`pokemon-species/${cacheKey}`);
+  const speciesName = String(payload?.name || cacheKey).trim().toLowerCase();
+  const speciesId = Number(payload?.id) || null;
+
+  speciesCache.set(cacheKey, payload);
+  speciesCache.set(speciesName, payload);
+  if (speciesId) {
+    speciesCache.set(String(speciesId), payload);
+  }
+
+  return payload;
 };
 
 export const getDefaultPokemonRequestKey = (species: any, fallback = "") => {
@@ -203,9 +233,10 @@ const loadPokemonTypeNames = async (name: string | undefined) => {
   }
 };
 
-const loadEvolutionLine = async (chainUrl: string | undefined) => {
+const loadEvolutionLine = async (chainUrl: string | undefined, locale: AppLocale) => {
   if (!chainUrl) return [];
-  if (evolutionChainCache.has(chainUrl)) return evolutionChainCache.get(chainUrl)!;
+  const cacheKey = `${chainUrl}|${locale}`;
+  if (evolutionChainCache.has(cacheKey)) return evolutionChainCache.get(cacheKey)!;
 
   try {
     const chain = await fetchJson<any>(chainUrl);
@@ -215,28 +246,45 @@ const loadEvolutionLine = async (chainUrl: string | undefined) => {
     );
 
     if (uniqueNames.length) {
-      const typeEntries = await Promise.all(
-        uniqueNames.map(async (name) => [name, await loadPokemonTypeNames(name)] as const)
+      const stageEntries = await Promise.all(
+        uniqueNames.map(async (name) => {
+          const [typeNames, species] = await Promise.all([
+            loadPokemonTypeNames(name),
+            loadPokemonSpecies(name).catch(() => null)
+          ]);
+          return [name, typeNames, species] as const;
+        })
       );
       const typeMap = new Map<string, PokemonTypeName[]>(
-        typeEntries.map(([name, typeNames]) => [name.toLowerCase(), typeNames])
+        stageEntries.map(([name, typeNames]) => [name.toLowerCase(), typeNames])
+      );
+      const labelMap = new Map<string, string>(
+        stageEntries.map(([name, , species]) => [
+          name.toLowerCase(),
+          getLocalizedName(species?.names || [], locale, capitalize(name)) ||
+            capitalize(name)
+        ])
       );
       stages.forEach((stage) => {
         stage.forEach((entry) => {
           entry.typeNames = typeMap.get(entry.name.toLowerCase()) || [];
+          entry.label = labelMap.get(entry.name.toLowerCase()) || entry.label;
         });
       });
     }
 
-    evolutionChainCache.set(chainUrl, stages);
+    evolutionChainCache.set(cacheKey, stages);
     return stages;
   } catch {
-    evolutionChainCache.set(chainUrl, []);
+    evolutionChainCache.set(cacheKey, []);
     return [];
   }
 };
 
-export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> => {
+export const fetchPokemon = async (
+  nameOrId: string | number,
+  locale: AppLocale = DEFAULT_LOCALE
+): Promise<Pokemon> => {
   const key = String(nameOrId).toLowerCase();
   let details: any;
   let species: any;
@@ -244,9 +292,9 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
   try {
     details = await fetchJson<any>(`pokemon/${key}`);
     const speciesKey = String(details?.species?.name || key).toLowerCase();
-    species = await fetchJson<any>(`pokemon-species/${speciesKey}`);
+    species = await loadPokemonSpecies(speciesKey);
   } catch {
-    species = await fetchJson<any>(`pokemon-species/${key}`);
+    species = await loadPokemonSpecies(key);
     details = await loadPokemonDetails(key, species);
   }
 
@@ -258,21 +306,21 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
   setPokemonTypeCache(key, typeNames);
   setPokemonTypeCache(details?.name || key, typeNames);
   setPokemonTypeCache(speciesName, typeNames);
-  const evolution = await loadEvolutionLine(species?.evolution_chain?.url);
+  const evolution = await loadEvolutionLine(species?.evolution_chain?.url, locale);
   const abilities: PokemonAbility[] = (
     await Promise.all(
       (details?.abilities || []).map(async (entry: any) => {
         const abilityName = entry?.ability?.name || "";
         if (!abilityName) return null;
-        const description = await loadAbilityDescription({
+        const info = await loadAbilityInfo({
           name: abilityName,
           url: entry?.ability?.url || ""
-        });
+        }, locale);
         return {
-          name: abilityName,
+          name: info.name,
           isHidden: Boolean(entry?.is_hidden),
           slot: Number(entry?.slot) || 99,
-          description
+          description: info.description
         } satisfies PokemonAbility;
       })
     )
@@ -297,7 +345,7 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
   return {
     id: Number(details?.id) || 0,
     rawName: speciesName,
-    name: capitalize(speciesName),
+    name: getLocalizedName(species?.names || [], locale, capitalize(speciesName)),
     generation,
     height: Number(details?.height) || 0,
     weight: Number(details?.weight) || 0,
@@ -316,7 +364,7 @@ export const fetchPokemon = async (nameOrId: string | number): Promise<Pokemon> 
     evolution,
     types: details?.types || [],
     stats: details?.stats || [],
-    bio: chooseFlavorText(species?.flavor_text_entries || []),
+    bio: chooseFlavorText(species?.flavor_text_entries || [], locale),
     images,
     thumb
   };

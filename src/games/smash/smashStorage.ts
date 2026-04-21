@@ -1,4 +1,5 @@
 import { TYPE_LIST, type PokemonTypeName } from "@/lib/typeChart";
+import { normalizeGuessToken } from "@/lib/text";
 import type {
   HistoryEntry,
   SmashFiltersStorage,
@@ -44,10 +45,18 @@ const normalizeEntry = (entry: unknown): HistoryEntry | null => {
     return { name, thumb: "" };
   }
   if (!entry || typeof entry !== "object") return null;
+  const key = String((entry as any).key || "").trim();
   const name = String((entry as any).name || "").trim();
   if (!name) return null;
-  return { name, thumb: String((entry as any).thumb || "") };
+  return {
+    key: key || undefined,
+    name,
+    thumb: String((entry as any).thumb || "")
+  };
 };
+
+export const getHistoryEntryKey = (entry: { key?: string; name: string }) =>
+  normalizeGuessToken(entry.key || entry.name);
 
 export const parseFavorites = (raw: unknown): HistoryEntry[] => {
   if (!Array.isArray(raw)) return [];

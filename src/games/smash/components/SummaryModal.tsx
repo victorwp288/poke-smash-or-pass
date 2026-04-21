@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import {
   Button,
   Chip,
@@ -25,20 +26,23 @@ export const SummaryModal = ({
   summary: SmashSummary | null;
   onClose: () => void;
 }) => {
+  const { strings } = useLocale();
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Swipe summary</DialogTitle>
+      <DialogTitle>{strings.summary.title}</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.5}>
           {summary ? (
             <>
               <Typography variant="body1">
-                <strong>{summary.totalSwipes}</strong> swipes with a{" "}
-                <strong>{summary.smashRate}%</strong> smash rate.
+                <strong>
+                  {strings.summary.sentence(summary.totalSwipes, summary.smashRate)}
+                </strong>
               </Typography>
 
               <Stack spacing={1}>
-                <Typography variant="subtitle2">Top types</Typography>
+                <Typography variant="subtitle2">{strings.summary.topTypes}</Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   {summary.topTypes.length ? (
                     summary.topTypes.map((entry) => (
@@ -50,16 +54,14 @@ export const SummaryModal = ({
                     ))
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      None yet
+                      {strings.summary.noneYet}
                     </Typography>
                   )}
                 </Stack>
               </Stack>
 
               <Stack spacing={1}>
-                <Typography variant="subtitle2">
-                  Average battle stats
-                </Typography>
+                <Typography variant="subtitle2">{strings.summary.avgStats}</Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   {summary.avgStats.map((stat) => (
                     <Chip
@@ -72,11 +74,11 @@ export const SummaryModal = ({
               </Stack>
             </>
           ) : (
-            <Typography color="text.secondary">Loading summary…</Typography>
+            <Typography color="text.secondary">{strings.summary.loading}</Typography>
           )}
 
           <Button variant="contained" onClick={onClose}>
-            Keep swiping
+            {strings.summary.keepSwiping}
           </Button>
         </Stack>
       </DialogContent>

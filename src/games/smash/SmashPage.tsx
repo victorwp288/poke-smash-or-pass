@@ -1,4 +1,5 @@
 import { useShell } from "@/app/providers/ShellProvider";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import { ActionRow } from "@/games/smash/components/ActionRow";
 import { FiltersPanel } from "@/games/smash/components/FiltersPanel";
 import { PokemonCard } from "@/games/smash/components/PokemonCard";
@@ -16,6 +17,7 @@ import {
   defaultFilters,
   defaultHistory,
   defaultOptions,
+  getHistoryEntryKey,
   parseFavorites,
   parseFilters,
   parseHistory,
@@ -30,9 +32,14 @@ import type {
 import { useSmashDeck } from "@/games/smash/useSmashDeck";
 import { useSwipeCard } from "@/games/smash/useSwipeCard";
 import { downloadDataUrl, downloadFile } from "@/lib/files";
+import {
+  getStatLabel,
+  getTypeLabel,
+  type AppLocale,
+  type LocaleStrings
+} from "@/lib/i18n/it";
 import type { Pokemon } from "@/lib/pokeapi/types";
 import { useLocalStorageState } from "@/lib/storage";
-import { capitalize } from "@/lib/text";
 import { TYPE_LIST, type PokemonTypeName } from "@/lib/typeChart";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
@@ -112,23 +119,27 @@ const buildBadges = ({
   passStreak,
   smashCount,
   typeCounts,
-  statTotals
+  statTotals,
+  locale,
+  strings
 }: {
   smashStreak: number;
   passStreak: number;
   smashCount: number;
   typeCounts: Record<string, number>;
   statTotals: Record<string, number>;
+  locale: AppLocale;
+  strings: LocaleStrings;
 }) => {
   const badges: string[] = [];
-  if (smashStreak >= 5) badges.push("Hot Streak");
-  if (passStreak >= 5) badges.push("Cold Streak");
+  if (smashStreak >= 5) badges.push(strings.badges.hotStreak);
+  if (passStreak >= 5) badges.push(strings.badges.coldStreak);
 
   const typeEntries = Object.entries(typeCounts)
     .map(([type, count]) => [type, Number(count) || 0] as const)
     .sort((a, b) => b[1] - a[1]);
   if (typeEntries[0]?.[1] >= 6) {
-    badges.push(`${capitalize(typeEntries[0][0])} Loyalist`);
+    badges.push(strings.badges.typeFan(getTypeLabel(locale, typeEntries[0][0])));
   }
 
   if (smashCount > 0) {
@@ -143,17 +154,21 @@ const buildBadges = ({
       (Number(totals["special-defense"]) || 0) / smashCount
     );
 
-    if (avgSpeed >= 90) badges.push("Speed Demon");
+    if (avgSpeed >= 90) badges.push(strings.badges.speedDemon);
     if (avgAtk + avgSpAtk >= 160 && avgDef + avgSpDef < 120) {
-      badges.push("Glass Cannon");
+      badges.push(strings.badges.glassCannon);
     }
-    if (avgDef + avgSpDef >= 160) badges.push("Tank Mode");
+    if (avgDef + avgSpDef >= 160) badges.push(strings.badges.tankMode);
   }
 
   return Array.from(new Set(badges)).slice(0, 5);
 };
 
-const buildSummary = (history: SmashHistoryStorage): SmashSummary => {
+const buildSummary = (
+  history: SmashHistoryStorage,
+  locale: AppLocale,
+  strings: LocaleStrings
+): SmashSummary => {
   const totalSwipes = history.smashCount + history.passCount;
   const smashRate = totalSwipes
     ? Math.round((history.smashCount / totalSwipes) * 100)
@@ -165,7 +180,7 @@ const buildSummary = (history: SmashHistoryStorage): SmashSummary => {
   const topTypes = typeEntries
     .filter(([, count]) => count > 0)
     .slice(0, 3)
-    .map(([type, count]) => ({ type: capitalize(type), count }));
+    .map(([type, count]) => ({ type: getTypeLabel(locale, type), count }));
 
   const totals = history.statTotals ?? {};
   const avgStats = [
@@ -175,7 +190,7 @@ const buildSummary = (history: SmashHistoryStorage): SmashSummary => {
     "special-defense",
     "speed"
   ].map((key) => ({
-    label: capitalize(key.replace("-", " ")),
+    label: getStatLabel(locale, key),
     value: history.smashCount
       ? Math.round((Number((totals as any)[key]) || 0) / history.smashCount)
       : 0
@@ -220,25 +235,32 @@ const drawRoundedRect = (
   ctx.closePath();
 };
 
-const buildSmashHelpBody = (smashPassMode: boolean) => (
+const buildSmashHelpBody = (
+  smashPassMode: boolean,
+  strings: LocaleStrings
+) => (
   <Stack spacing={1.2}>
     {[
       [
-        "Swipe",
-        smashPassMode ? "Drag left or right" : "Turn on Smash or Pass mode"
-      ],
-      [
-        "Keys",
+        strings.page.helpRows.swipe,
         smashPassMode
-          ? "Left = Pass, Right = Smash"
-          : "Voting keys return with Smash or Pass mode"
+          ? strings.page.helpValues.swipeEnabled
+          : strings.page.helpValues.swipeDisabled
       ],
-      ["Undo", "Cmd/Ctrl + Z"],
       [
-        "Shuffle",
-        smashPassMode ? "Center button or swipe up on mobile" : "Center button"
+        strings.page.helpRows.keys,
+        smashPassMode
+          ? strings.page.helpValues.keysEnabled
+          : strings.page.helpValues.keysDisabled
       ],
-      ["Peek", "Show or hide stats"]
+      [strings.page.helpRows.undo, strings.page.helpValues.undo],
+      [
+        strings.page.helpRows.shuffle,
+        smashPassMode
+          ? strings.page.helpValues.shuffleEnabled
+          : strings.page.helpValues.shuffleDisabled
+      ],
+      [strings.page.helpRows.peek, strings.page.helpValues.peek]
     ].map(([label, value]) => (
       <Stack
         key={label}
@@ -269,6 +291,7 @@ const CornerPokeballMenu = ({
   onUndo: () => void;
   onOpenFilters: () => void;
 }) => {
+  const { strings } = useLocale();
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -309,7 +332,7 @@ const CornerPokeballMenu = ({
                   }}
                   sx={{ justifyContent: "flex-start" }}
                 >
-                  {undoCount ? `Undo ${undoCount}` : "Undo"}
+                  {strings.page.undo(undoCount)}
                 </Button>
                 <Button
                   variant="outlined"
@@ -321,7 +344,7 @@ const CornerPokeballMenu = ({
                   }}
                   sx={{ justifyContent: "flex-start" }}
                 >
-                  Filters
+                  {strings.filters.button}
                 </Button>
               </Stack>
             </Paper>
@@ -330,7 +353,7 @@ const CornerPokeballMenu = ({
           <Box
             component="button"
             type="button"
-            aria-label="Open deck tools"
+            aria-label={strings.page.openDeckTools}
             aria-expanded={open}
             aria-controls="smash-corner-menu"
             onClick={() => setOpen((prev) => !prev)}
@@ -406,24 +429,25 @@ const SessionPanel = ({
   recentSmash: HistoryEntry[];
   recentPass: HistoryEntry[];
 }) => {
+  const { strings } = useLocale();
   const statCards = [
     {
-      label: "Deck left",
+      label: strings.session.deckLeft,
       value: queueLeft,
       icon: <TravelExploreRoundedIcon fontSize="small" />
     },
     {
-      label: "Smash",
+      label: strings.session.smash,
       value: smashCount,
       icon: <FavoriteRoundedIcon fontSize="small" />
     },
     {
-      label: "Pass",
+      label: strings.session.pass,
       value: passCount,
       icon: <HistoryRoundedIcon fontSize="small" />
     },
     {
-      label: "Saved",
+      label: strings.session.saved,
       value: favoritesCount,
       icon: <AutoAwesomeRoundedIcon fontSize="small" />
     }
@@ -449,9 +473,9 @@ const SessionPanel = ({
           >
             <div>
               <Typography variant="overline" color="text.secondary">
-                Session pulse
+                {strings.session.overline}
               </Typography>
-              <Typography variant="h3">Control center</Typography>
+              <Typography variant="h3">{strings.session.title}</Typography>
             </div>
           </Stack>
 
@@ -493,13 +517,16 @@ const SessionPanel = ({
 
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {smashStreak > 0 ? (
-              <Chip color="success" label={`Smash streak ${smashStreak}`} />
+              <Chip
+                color="success"
+                label={strings.session.smashStreak(smashStreak)}
+              />
             ) : null}
             {passStreak > 0 ? (
-              <Chip color="error" label={`Pass streak ${passStreak}`} />
+              <Chip color="error" label={strings.session.passStreak(passStreak)} />
             ) : null}
             {!smashStreak && !passStreak ? (
-              <Chip variant="outlined" label="No current streak" />
+              <Chip variant="outlined" label={strings.session.noCurrentStreak} />
             ) : null}
           </Stack>
         </Stack>
@@ -507,7 +534,7 @@ const SessionPanel = ({
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 0 }}>
         <Stack spacing={1.25}>
-          <Typography variant="h3">Matchup badges</Typography>
+          <Typography variant="h3">{strings.session.badgeTitle}</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {badges.length ? (
               badges.map((badge) => (
@@ -515,7 +542,7 @@ const SessionPanel = ({
               ))
             ) : (
               <Typography variant="body2" color="text.secondary">
-                Your deck personality shows up here after a few rounds.
+                {strings.session.badgeEmpty}
               </Typography>
             )}
           </Stack>
@@ -524,29 +551,27 @@ const SessionPanel = ({
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 0 }}>
         <Stack spacing={1.25}>
-          <Typography variant="h3">Deck rhythm</Typography>
+          <Typography variant="h3">{strings.session.deckRhythm}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Keep the card open as your field guide, save favorites for later,
-            and use the filter drawer to tighten the pool when you want a more
-            curated SmashDex run.
+            {strings.session.deckRhythmBody}
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Chip color="secondary" label="Save favorites" />
-            <Chip variant="outlined" label="Filter by gen and type" />
-            <Chip variant="outlined" label="Shuffle when the deck gets stale" />
+            <Chip color="secondary" label={strings.session.saveFavorites} />
+            <Chip variant="outlined" label={strings.session.filterByGen} />
+            <Chip variant="outlined" label={strings.session.reshuffle} />
           </Stack>
         </Stack>
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 0 }}>
         <Stack spacing={1.25}>
-          <Typography variant="h3">Recent picks</Typography>
-          <Typography variant="subtitle2">Smash list</Typography>
+          <Typography variant="h3">{strings.session.recentPicks}</Typography>
+          <Typography variant="subtitle2">{strings.session.smashList}</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {recentSmash.length ? (
               recentSmash.map((entry, idx) => (
                 <Chip
-                  key={`${entry.name}-${idx}`}
+                  key={`${getHistoryEntryKey(entry)}-${idx}`}
                   avatar={
                     <Box
                       component="img"
@@ -561,16 +586,16 @@ const SessionPanel = ({
               ))
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No smash picks yet.
+                {strings.filters.recentSmashEmpty}
               </Typography>
             )}
           </Stack>
-          <Typography variant="subtitle2">Pass list</Typography>
+          <Typography variant="subtitle2">{strings.session.passList}</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {recentPass.length ? (
               recentPass.map((entry, idx) => (
                 <Chip
-                  key={`${entry.name}-${idx}`}
+                  key={`${getHistoryEntryKey(entry)}-${idx}`}
                   avatar={
                     <Box
                       component="img"
@@ -585,7 +610,7 @@ const SessionPanel = ({
               ))
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No passes yet.
+                {strings.filters.recentPassEmpty}
               </Typography>
             )}
           </Stack>
@@ -597,6 +622,7 @@ const SessionPanel = ({
 
 export const SmashPage = () => {
   const shell = useShell();
+  const { locale, strings } = useLocale();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -717,15 +743,15 @@ export const SmashPage = () => {
     } catch {
       // ignore
     }
-    shell.setHeader({ title: "SmashDex", category: "Smash / Pass" });
-  }, [shell]);
+    shell.setHeader({ title: strings.shell.title, category: strings.shell.category });
+  }, [shell, strings.shell.category, strings.shell.title]);
 
   React.useEffect(() => {
     shell.setHelp({
-      title: "Controls",
-      body: buildSmashHelpBody(options.smashPassMode)
+      title: strings.shell.helpTitle,
+      body: buildSmashHelpBody(options.smashPassMode, strings)
     });
-  }, [options.smashPassMode, shell]);
+  }, [options.smashPassMode, shell, strings]);
 
   const badges = React.useMemo(
     () =>
@@ -734,14 +760,18 @@ export const SmashPage = () => {
         passStreak,
         smashCount: history.smashCount,
         typeCounts: (history.typeCounts ?? {}) as Record<string, number>,
-        statTotals: (history.statTotals ?? {}) as Record<string, number>
+        statTotals: (history.statTotals ?? {}) as Record<string, number>,
+        locale,
+        strings
       }),
     [
       history.smashCount,
       history.statTotals,
       history.typeCounts,
+      locale,
       passStreak,
-      smashStreak
+      smashStreak,
+      strings
     ]
   );
 
@@ -753,16 +783,19 @@ export const SmashPage = () => {
   React.useEffect(() => {
     shell.setScoreboard(
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Chip color="success" label={`Smash ${history.smashCount}`} />
+        <Chip
+          color="success"
+          label={`${strings.session.smash} ${history.smashCount}`}
+        />
         <Chip
           variant="outlined"
           color="error"
-          label={`Pass ${history.passCount}`}
+          label={`${strings.session.pass} ${history.passCount}`}
         />
       </Stack>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history.passCount, history.smashCount]);
+  }, [history.passCount, history.smashCount, strings.session.pass, strings.session.smash]);
 
   React.useEffect(() => {
     void deck.rebuildQueue();
@@ -791,22 +824,33 @@ export const SmashPage = () => {
     setShowStats(options.autoReveal);
   }, [deck.currentPokemon?.rawName, options.autoReveal]);
 
+  const currentPokemonKey = deck.currentPokemon?.rawName
+    ? getHistoryEntryKey({
+        key: deck.currentPokemon.rawName,
+        name: deck.currentPokemon.name
+      })
+    : "";
+
   const isFavorite = Boolean(
     deck.currentPokemon &&
-    favorites.some((fav) => fav.name === deck.currentPokemon!.name)
+    favorites.some((fav) => getHistoryEntryKey(fav) === currentPokemonKey)
   );
 
   const toggleFavorite = () => {
     const pokemon = deck.currentPokemon;
     if (!pokemon) return;
+    const pokemonKey = getHistoryEntryKey({ key: pokemon.rawName, name: pokemon.name });
     setFavorites((prev) => {
-      const existingIndex = prev.findIndex((fav) => fav.name === pokemon.name);
+      const existingIndex = prev.findIndex(
+        (fav) => getHistoryEntryKey(fav) === pokemonKey
+      );
       if (existingIndex >= 0) {
         const next = [...prev];
         next.splice(existingIndex, 1);
         return next;
       }
       const entry: HistoryEntry = {
+        key: pokemon.rawName,
         name: pokemon.name,
         thumb: pokemon.thumb || pokemon.images.main
       };
@@ -857,10 +901,10 @@ export const SmashPage = () => {
 
     ctx.fillStyle = "#14130f";
     ctx.font = "36px Bungee, sans-serif";
-    ctx.fillText("SmashDex", 40, 70);
+    ctx.fillText(strings.page.shareTitle, 40, 70);
     ctx.font = "18px IBM Plex Sans, sans-serif";
     ctx.fillText(
-      `Smash ${history.smashCount} · Pass ${history.passCount}`,
+      `${strings.session.smash} ${history.smashCount} / ${strings.session.pass} ${history.passCount}`,
       40,
       105
     );
@@ -910,7 +954,7 @@ export const SmashPage = () => {
         try {
           await (navigator as any).share({
             files: [file],
-            title: "SmashDex"
+            title: strings.page.shareTitle
           });
           return;
         } catch {
@@ -927,6 +971,7 @@ export const SmashPage = () => {
     if (!pokemon) return;
 
     const entry: HistoryEntry = {
+      key: pokemon.rawName,
       name: pokemon.name,
       thumb: pokemon.thumb || pokemon.images.main
     };
@@ -969,7 +1014,7 @@ export const SmashPage = () => {
 
     const totalSwipes = next.smashCount + next.passCount;
     if (totalSwipes && totalSwipes % SUMMARY_INTERVAL === 0) {
-      setSummaryData(buildSummary(next));
+      setSummaryData(buildSummary(next, locale, strings));
       setSummaryOpen(true);
     }
   };
@@ -1097,8 +1142,7 @@ export const SmashPage = () => {
   };
 
   const isDeckEmpty =
-    !deck.currentPokemon &&
-    deck.statusText.toLowerCase().startsWith("deck empty");
+    !deck.currentPokemon && deck.statusText === strings.deck.empty;
 
   const handleSelectPokemon = React.useCallback(
     async (name: string) => {
@@ -1256,33 +1300,32 @@ export const SmashPage = () => {
             >
               <Stack spacing={1.5}>
                 <Typography variant="overline" color="text.secondary">
-                  Mobile-first deck
+                  {strings.shell.desktopOverline}
                 </Typography>
                 <Typography
                   variant="h1"
                   sx={{ fontSize: { xs: "2.1rem", md: "3rem" } }}
                 >
-                  Swipe fast. Study deeper. Hand off better clues.
+                  {strings.page.heroTitle}
                 </Typography>
                 <Typography
                   variant="body1"
                   color="text.secondary"
                   sx={{ maxWidth: 760 }}
                 >
-                  SmashDex now behaves more like a pocket field guide on mobile:
-                  the important controls stay thumb-ready, the card keeps all
-                  its data, and the whole experience stays focused on Smash or
-                  Pass instead of splitting attention across extra modes.
+                  {strings.page.heroBody}
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <Chip color="secondary" label={deck.statusText} />
                   <Chip
                     variant="outlined"
-                    label={`${favorites.length} saved Pokemon`}
+                    label={strings.page.savedPokemon(favorites.length)}
                   />
                   <Chip
                     variant="outlined"
-                    label={`${history.smashCount + history.passCount} total votes`}
+                    label={strings.page.totalVotes(
+                      history.smashCount + history.passCount
+                    )}
                   />
                 </Stack>
               </Stack>
@@ -1304,10 +1347,10 @@ export const SmashPage = () => {
           >
             <PokemonCard
               pokemon={deck.currentPokemon}
-              emptyTitle={isDeckEmpty ? "No Pokemon" : undefined}
+              emptyTitle={isDeckEmpty ? strings.page.emptyTitle : undefined}
               emptyBody={
                 isDeckEmpty
-                  ? "Choose more generations or types to keep swiping."
+                  ? strings.page.emptyBody
                   : undefined
               }
               isFavorite={isFavorite}
@@ -1352,8 +1395,8 @@ export const SmashPage = () => {
               >
                 <Typography variant="body2" color="text.secondary">
                   {options.smashPassMode
-                    ? "Tip: swipe left or right to vote, tap the art to cycle images, and use the control drawer when you want filters, history, or exports."
-                    : "Tip: use this as a field guide while Smash or Pass mode is off. You can still cycle the art, save favorites, and shuffle into a new pick whenever you want."}
+                    ? strings.page.votingTip
+                    : strings.page.guideTip}
                 </Typography>
                 <Button
                   color="secondary"
@@ -1362,7 +1405,7 @@ export const SmashPage = () => {
                   onClick={shuffleDeck}
                   disabled={isShuffling}
                 >
-                  Refresh the deck
+                  {strings.page.refreshDeck}
                 </Button>
               </Stack>
             </Paper>

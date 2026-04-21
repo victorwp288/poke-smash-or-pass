@@ -11,18 +11,20 @@ import {
   useTheme
 } from "@mui/material";
 import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import { useShell } from "@/app/providers/ShellProvider";
 
 export const HelpDialog = () => {
   const shell = useShell();
+  const { strings } = useLocale();
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
     <>
-      <Tooltip title="Open help">
+      <Tooltip title={strings.shell.openHelp}>
         <IconButton
-          aria-label="Open help"
+          aria-label={strings.shell.openHelp}
           onClick={() => shell.setHelpOpen(true)}
           sx={{
             border: "1px solid",
@@ -45,7 +47,7 @@ export const HelpDialog = () => {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>{shell.help.title ?? "Help"}</DialogTitle>
+        <DialogTitle>{shell.help.title ?? strings.shell.helpTitle}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2.5} sx={{ pt: 1 }}>
             {shell.help.body}

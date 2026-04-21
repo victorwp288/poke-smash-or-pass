@@ -1,6 +1,7 @@
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
 import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import { Box, Button, Paper, alpha, keyframes } from "@mui/material";
 
 const pokeballSpin = keyframes`
@@ -66,6 +67,8 @@ export const ActionRow = ({
   onSmash: () => void;
   onShuffle: () => void;
 }) => {
+  const { strings } = useLocale();
+
   const shuffleButton = (
     <Button
       color="secondary"
@@ -81,7 +84,7 @@ export const ActionRow = ({
         borderRadius: "999px"
       }}
     >
-      Shuffle
+      {strings.actionRow.shuffle}
     </Button>
   );
 
@@ -162,7 +165,7 @@ export const ActionRow = ({
                 }
               }}
             >
-              Pass
+              {strings.actionRow.pass}
             </Button>
           ) : null}
 
@@ -186,7 +189,7 @@ export const ActionRow = ({
                 }
               }}
             >
-              Smash
+              {strings.actionRow.smash}
             </Button>
           ) : null}
         </Box>

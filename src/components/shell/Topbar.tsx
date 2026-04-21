@@ -15,11 +15,13 @@ import {
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import KeyboardArrowUpRoundedIcon from "@mui/icons-material/KeyboardArrowUpRounded";
 import { useLocation } from "react-router-dom";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import { useShell } from "@/app/providers/ShellProvider";
 import { HelpDialog } from "@/components/shell/HelpDialog";
 
 export const Topbar = () => {
   const shell = useShell();
+  const { strings } = useLocale();
   const location = useLocation();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
@@ -29,10 +31,10 @@ export const Topbar = () => {
 
   React.useEffect(() => {
     setScoreboard(null);
-    setStatus("Ready");
+    setStatus(strings.shell.ready);
     setMobileOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [location.pathname, strings.shell.ready]);
 
   React.useEffect(() => {
     if (isDesktop) {
@@ -40,8 +42,8 @@ export const Topbar = () => {
     }
   }, [isDesktop]);
 
-  const categoryLabel = shell.header.category ?? "Smash / Pass";
-  const titleLabel = shell.header.title ?? "SmashDex Arcade";
+  const categoryLabel = shell.header.category ?? strings.shell.category;
+  const titleLabel = shell.header.title ?? strings.shell.title;
 
   if (!isDesktop) {
     return (
@@ -142,7 +144,7 @@ export const Topbar = () => {
                   onClick={() => setMobileOpen((prev) => !prev)}
                   sx={{ flexShrink: 0, minWidth: 92 }}
                 >
-                  {mobileOpen ? "Hide" : "Show"}
+                  {mobileOpen ? strings.shell.hide : strings.shell.show}
                 </Button>
               </Stack>
             </Paper>
@@ -168,8 +170,7 @@ export const Topbar = () => {
                     </Typography>
                     <Typography variant="h3">{titleLabel}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Open the deck bar when you want live status, help, or the
-                      session score without giving up card space on mobile.
+                      {strings.shell.mobilePanelBody}
                     </Typography>
                   </Stack>
 
@@ -272,7 +273,7 @@ export const Topbar = () => {
                   sx={{ alignSelf: "flex-start", fontWeight: 700 }}
                 />
                 <Typography variant="overline" color="text.secondary">
-                  Single-mode mobile deck
+                  {strings.shell.desktopLabel}
                 </Typography>
               </Stack>
               <Typography
@@ -286,8 +287,7 @@ export const Topbar = () => {
                 color="text.secondary"
                 sx={{ maxWidth: 760 }}
               >
-                SmashDex only, focused on fast swiping, rich card details, and a
-                cleaner mobile deck-building rhythm.
+                {strings.shell.desktopBody}
               </Typography>
             </Stack>
 

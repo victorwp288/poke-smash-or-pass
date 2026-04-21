@@ -1,4 +1,5 @@
 import { fetchGenerationRosterEntries, type GenerationRosterEntry } from "@/lib/pokeapi/api";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import { capitalize, formatId, normalizeGuessToken } from "@/lib/text";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
@@ -47,6 +48,7 @@ export const PokemonPickerModal = ({
   onClose: () => void;
   onSelectPokemon: (name: string) => void;
 }) => {
+  const { strings } = useLocale();
   const theme = useTheme();
   const queryClient = useQueryClient();
 
@@ -79,10 +81,10 @@ export const PokemonPickerModal = ({
       setIsLoading(false);
     } catch {
       if (token !== requestTokenRef.current) return;
-      setLoadError("Couldn’t load the Pokedex list right now.");
+      setLoadError(strings.picker.listUnavailableBody);
       setIsLoading(false);
     }
-  }, [queryClient]);
+  }, [queryClient, strings.picker.listUnavailableBody]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -159,8 +161,8 @@ export const PokemonPickerModal = ({
               justifyContent="space-between"
               alignItems="center"
             >
-              <Typography variant="h3">Pokemon Jump</Typography>
-              <IconButton aria-label="Close Pokedex jump modal" onClick={onClose}>
+              <Typography variant="h3">{strings.picker.title}</Typography>
+              <IconButton aria-label={strings.picker.close} onClick={onClose}>
                 <CloseRoundedIcon />
               </IconButton>
             </Stack>
@@ -170,8 +172,8 @@ export const PokemonPickerModal = ({
               fullWidth
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
-              placeholder="Search by name or Pokedex number"
-              inputProps={{ "aria-label": "Search Pokemon list" }}
+              placeholder={strings.picker.searchPlaceholder}
+              inputProps={{ "aria-label": strings.picker.searchAria }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 0,
@@ -217,7 +219,7 @@ export const PokemonPickerModal = ({
               }
             }}
           >
-            <Tab label="All Pokemon" value="all" />
+            <Tab label={strings.picker.allPokemon} value="all" />
             {Array.from({ length: GEN_TOTAL }, (_, index) => {
               const genId = index + 1;
               return <Tab key={genId} label={`Gen ${genId}`} value={genId} />;
@@ -235,7 +237,7 @@ export const PokemonPickerModal = ({
             >
               <CircularProgress color="secondary" />
               <Typography color="text.secondary">
-                Building the Pokedex list...
+                {strings.picker.buildingList}
               </Typography>
             </Stack>
           ) : loadError ? (
@@ -250,10 +252,10 @@ export const PokemonPickerModal = ({
               }}
             >
               <Stack spacing={1.5} alignItems="flex-start">
-                <Typography variant="h4">List unavailable</Typography>
+                <Typography variant="h4">{strings.picker.listUnavailable}</Typography>
                 <Typography color="text.secondary">{loadError}</Typography>
                 <Button variant="contained" onClick={() => void loadRosters()}>
-                  Try again
+                  {strings.common.tryAgain}
                 </Button>
               </Stack>
             </Paper>
@@ -306,7 +308,7 @@ export const PokemonPickerModal = ({
                         color="text.secondary"
                         sx={{ minWidth: 68, flexShrink: 0 }}
                       >
-                        {entry.id ? formatId(entry.id) : "Unknown"}
+                        {entry.id ? formatId(entry.id) : strings.picker.unknown}
                       </Typography>
                       <Typography
                         variant="body1"
@@ -335,10 +337,9 @@ export const PokemonPickerModal = ({
               }}
             >
               <Stack spacing={1}>
-                <Typography variant="h4">No matches found</Typography>
+                <Typography variant="h4">{strings.picker.noMatches}</Typography>
                 <Typography color="text.secondary">
-                  Try a different name, a Pokedex number, or another generation
-                  tab.
+                  {strings.picker.noMatchesBody}
                 </Typography>
               </Stack>
             </Paper>

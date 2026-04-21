@@ -1,6 +1,6 @@
 import type { PokemonTypeName } from "@/lib/typeChart";
 
-export type HistoryEntry = { name: string; thumb: string };
+export type HistoryEntry = { key?: string; name: string; thumb: string };
 
 export type SmashHistoryStorage = {
   smash: HistoryEntry[];

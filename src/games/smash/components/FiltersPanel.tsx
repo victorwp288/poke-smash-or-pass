@@ -18,15 +18,17 @@ import {
   useTheme
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import type {
   HistoryEntry,
   SmashFiltersStorage,
   SmashHistoryStorage,
   SmashOptionsStorage
 } from "@/games/smash/smashTypes";
+import { getHistoryEntryKey } from "@/games/smash/smashStorage";
 import { TYPE_COLORS, TYPE_ICON_FILES } from "@/lib/constants";
+import { getTypeLabel } from "@/lib/i18n/it";
 import { TYPE_LIST, type PokemonTypeName } from "@/lib/typeChart";
-import { capitalize } from "@/lib/text";
 
 const GEN_COUNT = 9;
 const DESKTOP_HISTORY_LIMIT = 12;
@@ -119,6 +121,7 @@ export const FiltersPanel = ({
   onExportCsv: () => void;
   onShareCard: () => void;
 }) => {
+  const { locale, setLocale, strings } = useLocale();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const selectedGens = new Set(filters.gens);
@@ -164,9 +167,9 @@ export const FiltersPanel = ({
         >
           <div>
             <Typography variant="overline" color="text.secondary">
-              Deck studio
+              {strings.filters.overline}
             </Typography>
-            <Typography variant="h2">SmashDex controls</Typography>
+            <Typography variant="h2">{strings.filters.title}</Typography>
           </div>
           <Button
             color="secondary"
@@ -174,11 +177,11 @@ export const FiltersPanel = ({
             startIcon={<CloseRoundedIcon />}
             onClick={onClose}
           >
-            Close
+            {strings.common.close}
           </Button>
         </Stack>
 
-        <DrawerSection title="Generations">
+        <DrawerSection title={strings.filters.generations}>
           <ToggleButtonGroup
             value={filters.gens.map(String)}
             sx={{
@@ -204,15 +207,15 @@ export const FiltersPanel = ({
           </ToggleButtonGroup>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button size="small" onClick={onSetAllGens}>
-              Select all
+              {strings.filters.selectAll}
             </Button>
             <Button size="small" color="secondary" onClick={onClearGens}>
-              Clear
+              {strings.common.clear}
             </Button>
           </Stack>
         </DrawerSection>
 
-        <DrawerSection title="Types">
+        <DrawerSection title={strings.filters.types}>
           <Box
             sx={{
               display: "grid",
@@ -247,22 +250,22 @@ export const FiltersPanel = ({
                     alt=""
                     sx={{ width: 18, height: 18, mr: 1 }}
                   />
-                  {capitalize(type)}
+                  {getTypeLabel(locale, type)}
                 </Button>
               );
             })}
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button size="small" onClick={onSetAllTypes}>
-              All types
+              {strings.filters.allTypes}
             </Button>
             <Button size="small" color="secondary" onClick={onClearTypes}>
-              Clear
+              {strings.common.clear}
             </Button>
           </Stack>
         </DrawerSection>
 
-        <DrawerSection title="Deck options">
+        <DrawerSection title={strings.filters.deckOptions}>
           <Stack divider={<Divider flexItem />} spacing={0.5}>
             <FormControlLabel
               control={
@@ -273,7 +276,7 @@ export const FiltersPanel = ({
                   }
                 />
               }
-              label="Smash or pass mode"
+              label={strings.filters.smashPassMode}
             />
             <FormControlLabel
               control={
@@ -284,7 +287,7 @@ export const FiltersPanel = ({
                   }
                 />
               }
-              label="Auto-reveal stats"
+              label={strings.filters.autoReveal}
             />
             <FormControlLabel
               control={
@@ -295,7 +298,7 @@ export const FiltersPanel = ({
                   }
                 />
               }
-              label="Shiny mode"
+              label={strings.filters.shinyMode}
             />
             <FormControlLabel
               control={
@@ -306,7 +309,7 @@ export const FiltersPanel = ({
                   }
                 />
               }
-              label="Daily deck (20)"
+              label={strings.filters.dailyDeck}
             />
             <FormControlLabel
               control={
@@ -317,7 +320,7 @@ export const FiltersPanel = ({
                   }
                 />
               }
-              label="Only Mega-capable"
+              label={strings.filters.onlyMega}
             />
             <FormControlLabel
               control={
@@ -328,12 +331,33 @@ export const FiltersPanel = ({
                   }
                 />
               }
-              label="Keep history"
+              label={strings.filters.keepHistory}
             />
           </Stack>
         </DrawerSection>
 
-        <DrawerSection title="Badges">
+        <DrawerSection title={strings.shell.languageLabel}>
+          <ToggleButtonGroup
+            exclusive
+            value={locale}
+            onChange={(_, value: "en" | "it" | null) => {
+              if (value) setLocale(value);
+            }}
+            sx={{
+              gap: 0,
+              "& .MuiToggleButtonGroup-grouped": {
+                mr: 0,
+                borderRadius: "0 !important",
+                border: `1px solid ${alpha(theme.palette.text.primary, 0.12)} !important`
+              }
+            }}
+          >
+            <ToggleButton value="en">{strings.shell.english}</ToggleButton>
+            <ToggleButton value="it">{strings.shell.italian}</ToggleButton>
+          </ToggleButtonGroup>
+        </DrawerSection>
+
+        <DrawerSection title={strings.filters.badges}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {badges.length ? (
               badges.map((badge) => (
@@ -341,78 +365,86 @@ export const FiltersPanel = ({
               ))
             ) : (
               <Typography variant="body2" color="text.secondary">
-                Build streaks and favorites to earn badges.
+                {strings.filters.badgesEmpty}
               </Typography>
             )}
           </Stack>
         </DrawerSection>
 
         <DrawerSection
-          title="Favorites"
+          title={strings.filters.favorites}
           action={
             <Chip size="small" label={favorites.length} color="secondary" />
           }
         >
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {favorites.length ? (
-              favorites.map((fav) => <CollectChip key={fav.name} entry={fav} />)
+              favorites.map((fav) => (
+                <CollectChip key={getHistoryEntryKey(fav)} entry={fav} />
+              ))
             ) : (
               <Typography variant="body2" color="text.secondary">
-                Save a few Pokemon to build a clue deck for later.
+                {strings.filters.favoritesEmpty}
               </Typography>
             )}
           </Stack>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button onClick={onExportJson} disabled={!favorites.length}>
-              Export JSON
+              {strings.filters.exportJson}
             </Button>
             <Button onClick={onExportCsv} disabled={!favorites.length}>
-              Export CSV
+              {strings.filters.exportCsv}
             </Button>
             <Button
               color="secondary"
               onClick={onShareCard}
               disabled={!favorites.length && !history.smash.length}
             >
-              Share card
+              {strings.filters.shareCard}
             </Button>
           </Stack>
         </DrawerSection>
 
         <DrawerSection
-          title="Recent smash list"
+          title={strings.filters.recentSmash}
           action={<Chip size="small" label={smashList.length} />}
         >
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {smashList.length ? (
               smashList.map((entry, idx) => (
-                <CollectChip key={`${entry.name}-${idx}`} entry={entry} />
+                <CollectChip
+                  key={`${getHistoryEntryKey(entry)}-${idx}`}
+                  entry={entry}
+                />
               ))
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No smash picks yet.
+                {strings.filters.recentSmashEmpty}
               </Typography>
             )}
           </Stack>
         </DrawerSection>
 
         <DrawerSection
-          title="Recent pass list"
+          title={strings.filters.recentPass}
           action={<Chip size="small" label={passList.length} />}
         >
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {passList.length ? (
               passList.map((entry, idx) => (
-                <CollectChip key={`${entry.name}-${idx}`} entry={entry} />
+                <CollectChip
+                  key={`${getHistoryEntryKey(entry)}-${idx}`}
+                  entry={entry}
+                />
               ))
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No passes yet.
+                {strings.filters.recentPassEmpty}
               </Typography>
             )}
           </Stack>
           <Button color="secondary" onClick={onClearHistory}>
-            Clear history
+            {strings.filters.clearHistory}
           </Button>
         </DrawerSection>
       </Stack>

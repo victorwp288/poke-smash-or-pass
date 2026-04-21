@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocale } from "@/app/providers/LocaleProvider";
 
 type ShellHeader = {
   title?: string;
@@ -26,20 +27,21 @@ type ShellContextValue = {
 const ShellContext = React.createContext<ShellContextValue | null>(null);
 
 export const ShellProvider = ({ children }: { children: React.ReactNode }) => {
-  const [status, setStatus] = React.useState("Ready");
+  const { strings } = useLocale();
+  const [status, setStatus] = React.useState<string>(strings.shell.ready);
   const [header, setHeader] = React.useState<ShellHeader>({
-    title: "SmashDex",
-    category: "Smash / Pass"
+    title: strings.shell.title,
+    category: strings.shell.category
   });
   const [scoreboard, setScoreboard] = React.useState<React.ReactNode>(null);
   const [help, setHelp] = React.useState<ShellHelp>({
-    title: "Controls",
+    title: strings.shell.helpTitle,
     body: (
       <div className="grid gap-2 text-sm">
         <div className="flex items-center justify-between gap-3">
           <span className="font-semibold">Swipe</span>
           <span className="text-muted-foreground">
-            Left = Pass · Right = Smash
+            Left = Pass, Right = Smash
           </span>
         </div>
         <div className="flex items-center justify-between gap-3">

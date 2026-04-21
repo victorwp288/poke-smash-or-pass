@@ -1,5 +1,6 @@
 import React from "react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { useLocale } from "@/app/providers/LocaleProvider";
 import { MEGA_EVOLUTION_SPECIES } from "@/lib/constants";
 import { collectPokemonImageUrls, preloadImages } from "@/lib/images";
 import { fetchGenerationRoster, fetchPokemon, fetchTypeIndex } from "@/lib/pokeapi/api";
@@ -13,7 +14,10 @@ const PRELOAD_COUNT = 3;
 
 const unique = <T,>(items: T[]) => Array.from(new Set(items));
 
-const getDeckLabel = (dailyDeck: boolean) => (dailyDeck ? "Daily deck" : "Deck");
+const getDeckLabel = (
+  strings: ReturnType<typeof useLocale>["strings"],
+  dailyDeck: boolean
+) => (dailyDeck ? strings.deck.dailyLabel : strings.deck.label);
 
 const buildTypeAllowedSet = async (
   queryClient: QueryClient,
@@ -55,15 +59,18 @@ export const useSmashDeck = ({
   filters: SmashFiltersStorage;
   options: SmashOptionsStorage;
 }): SmashDeckApi => {
+  const { locale, strings } = useLocale();
   const queryClient = useQueryClient();
   const tokenRef = React.useRef(0);
   const queueRef = React.useRef<string[]>([]);
 
   const [queue, setQueueState] = React.useState<string[]>([]);
   const [currentPokemon, setCurrentPokemon] = React.useState<Pokemon | null>(null);
-  const [statusText, setStatusText] = React.useState<string>("Loading roster...");
+  const [statusText, setStatusText] = React.useState<string>(
+    strings.deck.loadingRoster
+  );
 
-  const deckLabel = getDeckLabel(options.dailyDeck);
+  const deckLabel = getDeckLabel(strings, options.dailyDeck);
 
   const setQueue = React.useCallback((next: string[]) => {
     queueRef.current = next;
@@ -71,8 +78,8 @@ export const useSmashDeck = ({
   }, []);
 
   const updateDeckStatus = React.useCallback(() => {
-    setStatusText(`${deckLabel}: ${queueRef.current.length} left`);
-  }, [deckLabel]);
+    setStatusText(strings.deck.remaining(deckLabel, queueRef.current.length));
+  }, [deckLabel, strings]);
 
   const prefetchUpcoming = React.useCallback(
     async (token: number) => {
@@ -82,8 +89,8 @@ export const useSmashDeck = ({
           try {
             const key = String(name).toLowerCase();
             const pokemon = await queryClient.fetchQuery<Pokemon>({
-              queryKey: ["pokemon", key],
-              queryFn: () => fetchPokemon(key)
+              queryKey: ["pokemon", key, locale],
+              queryFn: () => fetchPokemon(key, locale)
             });
             if (token !== tokenRef.current) return;
             preloadImages(collectPokemonImageUrls(pokemon));
@@ -93,7 +100,7 @@ export const useSmashDeck = ({
         })
       );
     },
-    [queryClient]
+    [locale, queryClient]
   );
 
   const loadNext = React.useCallback(async () => {
@@ -102,7 +109,7 @@ export const useSmashDeck = ({
       const nextQueue = queueRef.current;
       if (nextQueue.length === 0) {
         setCurrentPokemon(null);
-        setStatusText("Deck empty - pick more generations.");
+        setStatusText(strings.deck.empty);
         return;
       }
 
@@ -113,8 +120,8 @@ export const useSmashDeck = ({
       try {
         const key = String(nextName).toLowerCase();
         const pokemon = await queryClient.fetchQuery<Pokemon>({
-          queryKey: ["pokemon", key],
-          queryFn: () => fetchPokemon(key)
+          queryKey: ["pokemon", key, locale],
+          queryFn: () => fetchPokemon(key, locale)
         });
         if (token !== tokenRef.current) return;
         preloadImages(collectPokemonImageUrls(pokemon));
@@ -126,17 +133,17 @@ export const useSmashDeck = ({
         continue;
       }
     }
-  }, [prefetchUpcoming, queryClient, setQueue, updateDeckStatus]);
+  }, [locale, prefetchUpcoming, queryClient, setQueue, strings.deck.empty, updateDeckStatus]);
 
   const rebuildQueue = React.useCallback(async () => {
     const token = ++tokenRef.current;
     setCurrentPokemon(null);
     setQueue([]);
-    setStatusText("Fetching roster...");
+    setStatusText(strings.deck.fetchingRoster);
 
     const genIds = unique(filters.gens).filter((genId) => genId >= 1 && genId <= 9);
     if (genIds.length === 0) {
-      setStatusText("Deck empty - pick more generations.");
+      setStatusText(strings.deck.empty);
       return;
     }
 
@@ -180,9 +187,9 @@ export const useSmashDeck = ({
       if (token !== tokenRef.current) return;
       setQueue([]);
       setCurrentPokemon(null);
-      setStatusText("Deck empty - pick more generations.");
+      setStatusText(strings.deck.empty);
     }
-  }, [filters.gens, filters.types, loadNext, options.dailyDeck, options.onlyMega, queryClient, setQueue]);
+  }, [filters.gens, filters.types, loadNext, options.dailyDeck, options.onlyMega, queryClient, setQueue, strings.deck.empty, strings.deck.fetchingRoster]);
 
   const prependToQueue = React.useCallback(
     (name: string) => {
@@ -206,8 +213,8 @@ export const useSmashDeck = ({
       if (currentKey === key) return;
 
       const pokemon = await queryClient.fetchQuery<Pokemon>({
-        queryKey: ["pokemon", key],
-        queryFn: () => fetchPokemon(key)
+        queryKey: ["pokemon", key, locale],
+        queryFn: () => fetchPokemon(key, locale)
       });
 
       const nextQueue = queueRef.current.filter(
@@ -222,8 +229,41 @@ export const useSmashDeck = ({
       preloadImages(collectPokemonImageUrls(pokemon));
       setCurrentPokemon(pokemon);
     },
-    [currentPokemon?.rawName, queryClient, setQueue, updateDeckStatus]
+    [currentPokemon?.rawName, locale, queryClient, setQueue, updateDeckStatus]
   );
+
+  React.useEffect(() => {
+    if (currentPokemon?.rawName) {
+      void queryClient
+        .fetchQuery<Pokemon>({
+          queryKey: ["pokemon", currentPokemon.rawName, locale],
+          queryFn: () => fetchPokemon(currentPokemon.rawName, locale)
+        })
+        .then((pokemon) => {
+          preloadImages(collectPokemonImageUrls(pokemon));
+          setCurrentPokemon(pokemon);
+          updateDeckStatus();
+        })
+        .catch(() => {
+          updateDeckStatus();
+        });
+      return;
+    }
+
+    if (queueRef.current.length > 0) {
+      updateDeckStatus();
+      return;
+    }
+
+    setStatusText(tokenRef.current === 0 ? strings.deck.loadingRoster : strings.deck.empty);
+  }, [
+    currentPokemon?.rawName,
+    locale,
+    queryClient,
+    strings.deck.empty,
+    strings.deck.loadingRoster,
+    updateDeckStatus
+  ]);
 
   return {
     queue,
